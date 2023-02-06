@@ -1,0 +1,2 @@
+dtask *
+dtask	1	pulse	auto		high	red LED	-1	0s	200ms	200ms	arm-on-startup interrupts

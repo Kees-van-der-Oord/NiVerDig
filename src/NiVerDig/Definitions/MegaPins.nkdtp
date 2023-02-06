@@ -1,0 +1,10 @@
+dpin *
+dpin	1	BNC black	2	input	0	0
+dpin	2	BNC grey	3	input	0	0
+dpin	3	BNC red	18	input	0	0
+dpin	4	BNC green	19	input	0	0
+dpin	5	BNC blue	20	input	0	0
+dpin	6	LED red	5	output	0	1
+dpin	7	LED green	6	output	0	1
+dpin	8	LED blue	7	output	0	1
+dpin	9	button	8	pullup	0	0

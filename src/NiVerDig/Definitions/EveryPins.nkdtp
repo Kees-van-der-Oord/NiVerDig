@@ -1,0 +1,8 @@
+dpin *
+dpin	1	BNC1 cam	2	output	0	0
+dpin	2	BNC2 whe	3	pullup	0	0
+dpin	3	BNC 3	4	pullup	0	1
+dpin	4	red LED	5	output	0	1
+dpin	5	green LED	6	output	0	1
+dpin	6	blue LED	7	output	0	1
+dpin	7	button	8	pullup	0	0

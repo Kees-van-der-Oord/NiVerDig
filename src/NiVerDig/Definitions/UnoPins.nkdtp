@@ -1,0 +1,4 @@
+dpin *
+dpin	1	button	2	pullup	0	0
+dpin	2	camera	3	input	0	0
+dpin	3	control	4	output	0	0

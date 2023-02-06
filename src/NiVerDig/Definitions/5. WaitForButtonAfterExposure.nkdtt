@@ -1,0 +1,4 @@
+dtask *
+dtask	1	cam trig	manual		high	red LED	1	0s	500ms	500ms	interrupts
+dtask	2	arm wait	stop	cam trig	arm	wait	0	0s	0s	0s	arm-on-finish arm-on-startup interrupts
+dtask	3	wait	up	button	start	cam trig	0	0s	0s	0s	interrupts

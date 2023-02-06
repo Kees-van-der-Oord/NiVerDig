@@ -1,0 +1,7 @@
+dtask *
+dtask	1	cam trig1	manual		high	BNC1 cam	1	0s	20ms	100us	arm-on-finish arm-on-startup interrupts
+dtask	2	arm wait1	stop	cam trig1	arm	wait1	0	0s	0s	0s	arm-on-finish arm-on-startup interrupts
+dtask	3	wait1	down	BNC2 whe	start	cam trig2	0	0s	0s	0s	interrupts
+dtask	4	cam trig2	manual		high	BNC1 cam	1	0s	40ms	100us	arm-on-finish arm-on-startup interrupts
+dtask	5	arm wait2	stop	cam trig2	arm	wait2	0	0s	0s	0s	arm-on-finish arm-on-startup interrupts
+dtask	6	wait2	down	BNC2 whe	start	cam trig1	0	0s	0s	0s	arm-on-startup interrupts

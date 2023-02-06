@@ -1,0 +1,2 @@
+dtask *
+dtask	1	move	down	camera	high	control	1	0s	30ms	100us	arm-on-finish arm-on-startup interrupts

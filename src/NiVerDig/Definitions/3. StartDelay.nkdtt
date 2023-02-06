@@ -1,0 +1,3 @@
+dtask *
+dtask	1	pulse	manual		high	red LED	-1	0s	200ms	200ms	interrupts
+dtask	2	delayed s	down	button	start	pulse	0	5s	0s	0s	arm-on-finish arm-on-startup interrupts

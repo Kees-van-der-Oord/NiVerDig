@@ -1,0 +1,5 @@
+dtask *
+dtask	1	pulse	manual		high	red LED	-1	0s	200ms	200ms	interrupts
+dtask	2	arm	manual		arm	pulse	0	0s	0s	0s	arm-on-finish arm-on-startup interrupts
+dtask	3	start	manual		start	pulse	0	0s	0s	0s	arm-on-finish arm-on-startup interrupts
+dtask	4	stop	manual		stop	pulse	0	0s	0s	0s	arm-on-finish arm-on-startup interrupts
