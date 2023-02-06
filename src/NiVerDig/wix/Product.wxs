@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+	<?include ProductVersion.wxi?>
+	<Product Id="*" UpgradeCode="1489B9CA-0890-4DD2-9258-2BB910224394" Language="1033" Manufacturer="Kees van der Oord" Name="NiVerDig $(var.ProductVersion)" Version="$(var.ProductVersion)">
+		<Package InstallScope="perMachine" Compressed="yes"/>
+		<MediaTemplate EmbedCab="yes"/>
+		<!-- id of icon must end on .exe to make it show up in the start menu .. ??? -->
+		<Icon Id="Product.ico" SourceFile="Product.ico"/>
+		<Property Id="ARPPRODUCTICON" Value="Product.ico"/>
+		<MajorUpgrade Schedule="afterInstallInitialize" AllowDowngrades="no" AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of [ProductName] is already installed."/>
+		<UIRef Id="WixUI_InstallDir"/>
+		<Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER"/>
+		<WixVariable Id="WixUIBannerBmp" Value="NiVerDig_logo_740x88.png"/>
+		<WixVariable Id="WixUILicenseRtf" Value="license.rtf"/>
+		<WixVariable Id="WixUIDialogBmp" Value="NiVerDig_logo_772x488.png"/>
+		<!--
+		<WixVariable Id="iconDir" Value="will this show up anywhere ?" />
+    -->
+		<Directory Id="TARGETDIR" Name="SourceDir">
+			<Directory Id="ProgramFiles64Folder">
+				<Directory Id="INSTALLFOLDER" Name="NiVerDig">
+					<Directory Id="resDir" Name="res"/>
+				</Directory>
+				<Directory Id="ProgramMenuFolder">
+				<!--
+					<Directory Id="NiVerDigMenuFolder" Name="NiVerDig">
+						<Directory Id="NiVerDigStartMenuFolder" Name="NiVerDig"/>
+					</Directory>
+				-->
+				</Directory>
+			</Directory>
+		</Directory>
+		<Component Id="mainComponent" Directory="INSTALLFOLDER" Guid="{8C09E078-966A-4CF9-9A73-384A09D3F60F}">
+			<File Id="main" Source="..\x64\release\NiVerDig.exe" KeyPath="yes">
+				<Shortcut Id="StartMenuShortcut" Name="NiVerDig" Description="NiVerDig" Advertise="yes" Directory="ProgramMenuFolder" WorkingDirectory="INSTALLFOLDER" Icon="Product.ico" />
+			</File>
+			<File Id="NkComPortCon.exe" Source="..\x64\release\NkComPortCon.exe"/>
+			<File Id="NiVerDig.pdf" Source="..\Docs\NiVerDig.pdf"/>
+			<File Id="msvcp140.dll" Source="..\x64\release\msvcp140.dll"/>
+			<File Id="NkComPort.dll" Source="..\x64\release\NkComPort.dll"/>
+			<File Id="wxbase321u_vc_x64_custom.dll" Source="..\x64\release\wxbase321u_vc_x64_custom.dll"/>
+			<File Id="wxmsw321u_aui_vc_x64_custom.dll" Source="..\x64\release\wxmsw321u_aui_vc_x64_custom.dll"/>
+			<File Id="wxmsw321u_core_vc_x64_custom.dll" Source="..\x64\release\wxmsw321u_core_vc_x64_custom.dll"/>
+			<File Id="avrdude.exe" Source="..\x64\release\avrdude.exe"/>
+			<File Id="avrdude.conf" Source="..\x64\release\avrdude.conf"/>
+			<File Id="NiVerDig_33.mega.ino.hex" Source="..\Hex\NiVerDig_33.mega.ino.hex"/>
+			<File Id="NiVerDig_33.uno.ino.hex" Source="..\Hex\NiVerDig_33.uno.ino.hex"/>
+			<File Id="NiVerDig.mac" Source="..\macros\NiVerDig.mac"/>
+			<!--
+			<RemoveFolder Id="RemoveNiVerDigStartMenuFolder" Directory="NiVerDigStartMenuFolder" On="uninstall"/>
+			<RemoveFolder Id="RemoveNiVerDigMenuFolder" Directory="NiVerDigMenuFolder" On="uninstall"/>
+			-->
+		</Component>
+		<Feature Id="mainFeature">
+			<ComponentRef Id="mainComponent"/>
+			<ComponentGroupRef Id="cgResFiles"/>
+		</Feature>
+	</Product>
+</Wix>

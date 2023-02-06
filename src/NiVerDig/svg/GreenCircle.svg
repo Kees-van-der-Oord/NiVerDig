@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="27.726427mm"
+   height="27.726427mm"
+   viewBox="0 0 27.726427 27.726427"
+   version="1.1"
+   id="svg5"
+   inkscape:version="1.2.1 (9c6d41e410, 2022-07-14)"
+   sodipodi:docname="GreenCircle.svg"
+   inkscape:export-filename="BlackCircle.png"
+   inkscape:export-xdpi="29.314993"
+   inkscape:export-ydpi="29.314993"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     showgrid="false"
+     inkscape:zoom="0.72693603"
+     inkscape:cx="152.69569"
+     inkscape:cy="222.16535"
+     inkscape:window-width="1920"
+     inkscape:window-height="996"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs2">
+    <filter
+       inkscape:collect="always"
+       style="color-interpolation-filters:sRGB"
+       id="filter1519"
+       x="-0.38578679"
+       y="-0.38578679"
+       width="1.7715736"
+       height="1.7715736">
+      <feGaussianBlur
+         inkscape:collect="always"
+         stdDeviation="2.5157696"
+         id="feGaussianBlur1521" />
+    </filter>
+  </defs>
+  <g
+     inkscape:label="Laag 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-64.572447,-90.050383)">
+    <circle
+       style="mix-blend-mode:normal;fill:#12ff00;stroke-width:0.264583;filter:url(#filter1519);fill-opacity:1"
+       id="path111"
+       cx="78.435661"
+       cy="103.9136"
+       r="7.8253675" />
+  </g>
+</svg>

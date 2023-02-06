@@ -1,0 +1,2 @@
+to do: check stop ! (button still starts idle task)
+to add: factory reset button
