@@ -1,2 +1,2 @@
 # NiVerDig
-Arduino-based Digital Controller/Timer/Oscilloscope
+NiVerDig: an Arduino-based Versatile Digital Timer, Controller and Scope
