@@ -418,9 +418,9 @@ The NiVerDig sketch can be compiled with the most recent [Arduino IDE](https://w
 
 The NiVerDig win32 application can be compiled with the [Microsoft Visual Studio C++ Community Edition 2022](https://visualstudio.microsoft.com/vs/community/) compiler. It requires the [wxWidgets](https://www.wxwidgets.org/) library. Set the WXWIDGETS environment variable to the location where the package is installed.
 
-The NiVerDig msi package can be build using the [WIX Toolset](https://wixtoolset.org/). Set the WIX environment variable to the location of the toolset and run the 'make.bat' file to create hte package.
+The NiVerDig msi package can be build using the [WIX Toolset](https://wixtoolset.org/). Set the WIX environment variable to the location of the toolset and run the 'make.bat' file to create the package.
 	
 # Colofon
 Author: Kees van der Oord <Kees.van.der.Oord@inter.nl.net>
 Date: Jan 15, 2023
-Version: 33
+Version: 34
