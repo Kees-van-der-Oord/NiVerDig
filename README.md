@@ -333,9 +333,9 @@ int NGS_OnTimer()
 ## Build your own NiVerDig
 To build your own NiVerDig, here are some instructions and pictures for inspiration.
 For interfacing with 5V TTL signals, it is best to pick an Arduino board that operates on 5V.
-I have played with Arduino Uno, Mega, Nano, Nano Every boards. The Arduino framework is the fastes on the Uno/Mega, the performance on the Nano and Nano Eery is much slower. So I advies to use a (compatible) Uno R3 or Mega R3 board.
+I have played with Arduino Uno, Mega, Nano, Nano Every boards. The Arduino framework is the fastes on the Uno/Mega, the performance on the Nano and Nano Eery is much slower. So I advice to use a (compatible) Uno R3 or Mega R3 board.
 There are several solutions to connect sockets and wires to the Uno/Mega headers. 
-You can buy a [screw-terminal shield](https://www.amazon.com/Electronics-Salon-Terminal-Breakout-Arduino-MEGA-2560/dp/B07H9TJCWN) or manually connect a breakout cable (instructions below).
+You can buy a [screw-terminal shield](https://www.amazon.com/Electronics-Salon-Terminal-Breakout-Arduino-MEGA-2560/dp/B07H9TJCWN) or manually connect a breakout cable (instructions below). For visual feedback I like to add an RGB LED. And a red button will really please the end-user.
 
 Uno R3 or Mega R3 ?
 The Mega has more dynamic memory, allowing more pin and task definitions.
