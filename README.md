@@ -357,8 +357,8 @@ The capabilities of the Uno and Mega:
 | Frequency    | 16 MHz | 16 MHz |
 | pins supporting interrupts | 2: pins 2,3 | 6: pins 2,3,18,19,20,21 |
 | dynamic memory | 2048 bytes | 8192 bytes |
-| NiVerDig pin definitions | 4 | 8 |
-| NiVerDig task definitions | 52 | 52 |
+| NiVerDig pin definitions | 4 | 52 |
+| NiVerDig task definitions | 9 | 52 |
 
 The NiVerDig sketch allows to define the pins freely, but on a factory reset (button pressed 5 seconds on boot), the default pin definitions are restored.
 To limit the current on shortcut of the TTL ports, 1 kΩ resister can be used. This will have no significant effect on the speed performance. The LED is connected with resisters that limit the emission to non-disturbing weak level. Determine the best values by trial and error.
