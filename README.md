@@ -74,15 +74,14 @@ The Arduino UNO has two pins that support interrupts: pin 2 and 3.
 The Arduino Mega has 6 pins that support interrupts: pins 2, 3, 18, 19, 20, and 21.
 
 ## Scope
-The Scope page allows capturing the state of the pins in time. All standard scope control features are available from the top toolbar. Press the On/Off on the left to start capture. As long capture is active, all events are recorded to disk and be browsed using the button arrows. REcordings can be saved permenantly in binary format or in two text formats (absolute timing and relative timing)
+The Scope page allows capturing the state of the pins in time. All standard scope control features are available from the top toolbar. Press the On/Off on the left to start capture. As long capture is active, all events are recorded to disk and be browsed using the button arrows. Recordings can be saved permenantly in binary format or in two text formats (absolute timing and relative timing)
 
 ![image](https://user-images.githubusercontent.com/62476661/217359544-d93a63af-b7de-4c68-ba24-c8cd21e8913c.png)
 
 ## Console
 The Console page shows the serial communication with the device. The text starting with < were sent to the device, the text starting with > arrived from the device. The command line on the bottom allows entering custom commands.
 
-![image](https://user-images.githubusercontent.com/62476661/217360434-73093e77-c695-40ef-8c34-9bef6b4bce3d.png)
-
+![image](https://user-images.githubusercontent.com/62476661/217361085-0b6033dc-5474-4d90-b8db-9d76bab8ae64.png)
 
 ## Example 1: Camera Trigger started manually
 This example shows how to trigger a camera 100 times at 20 ms intervals. Pin ‘BNC 1’ is an output pin.
