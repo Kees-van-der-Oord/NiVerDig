@@ -336,7 +336,7 @@ To build your own NiVerDig, order a (compatible) Uno or Mega board, connect the 
 The Mega has more dynamic memory, allowing more pin and task definitions.
 The capabilities of the Uno and Mega:
 
-|              | Uno | Mega |
+|              | Uno R3 | Mega |
 | ------------ | --- | ---- |
 | Frequency    | 16 MHz | 16 MHz |
 | pins supporting interrupts | 2: pins 2,3 | 6: pins 2,3,18,19,20,21 |
@@ -395,7 +395,16 @@ assembly of the cable:
 
 ![image](https://user-images.githubusercontent.com/62476661/217348598-9f8d7557-e459-4e33-ab42-b81c989d089b.png)
  
-Colofon
+## Build Instructions
+The NiVerDig package installs the win32 GUI program and comes with precompiled sketches for the Uno R3 and Mega boards. In most cases, there is no need to compile the Arduino sketch or win32 program. The instructions below are for when  you are missing features and would like to add them.
+	
+The NiVerDig sketch can be compiled with the most recent [Arduino IDE](https://www.arduino.cc/en/software). It depends on the TimerOne library. The Sketch folder includes an alternative timer library for the Nano Every. However, it turns out that the Arduino framework for the Every is much slower than on the Uno/Mega. Especially the interrupt handler is slower: 40 us on the Uno/Mega, 400 us on the Every. So I would recommend using an Uno board (limited memory: only 4 pins) or the Mega (much more memory: much more pins).
+
+The NiVerDig win32 application can be compiled with the [Microsoft Visual Studio C++ Community Edition 2022](https://visualstudio.microsoft.com/vs/community/) compiler. It requires the [wxWidgets\(https://www.wxwidgets.org/) library. Set the WXWIDGETS environment variable to the location where the package is installed.
+
+The NiVerDig msi package can be build using the [WIX Toolset](https://wixtoolset.org/). Set the WIX environment variable to the location of the toolset and run the 'make.bat' file to create hte package.
+	
+# Colofon
 Author: Kees van der Oord <Kees.van.der.Oord@inter.nl.net>
 Date: Jan 15, 2023
 Version: 33
