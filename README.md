@@ -5,7 +5,7 @@ NiVerDig: an Arduino-based Versatile Digital Timer, Controller and Scope
 ## Introduction
 NiVerDig is a versatile digital signal controller scope based on an Arduino Uno or Mega board.  The NiVerDig Arduino Sketch allows flexible configuration of tasks that can be started and stopped by serial command or external digital input signals. When programmed, the NiVerDig can execute the tasks autonomously. When connected the PC the unit can be configured dynamically. The Scope mode allows recording the digital events to PC. A wxWidgets windows control program is available as a GUI front-end.
 
-Do you own an Arduino Uno or Mega that you would program with the NiVerDig sketch ? Install the [NiVerDig package](releases); start the NiVerDig program and select 'Port | Upload NiVerDig Sketch to Uno/Mega'. If you don't own one yet, jump to the [Build your own NiVerDig](#build-your-own-niverdig) section to get inspired to build one. For users of the Nikon NIS-Elements microscope control program, there is a section [NIS macros](#nis-macro) with examples how to integrate control of the NiVerDig from NIS.
+Do you own an Arduino Uno or Mega that you would program with the NiVerDig sketch ? Install the [NiVerDig package](releases); start the NiVerDig program and select 'Port | Upload NiVerDig Sketch to Uno/Mega'. If you don't own one yet, jump to the [Build your own NiVerDig](#build-your-own-niverdig) section to get inspired to build one. For users of the Nikon NIS-Elements microscope control program, there is a section [NIS macros](#nis-macro) with examples how to integrate control of the NiVerDig in NIS.
 
 ## Control Panel
 The main page of the NiVerDig program is the Control Panel. The first dropdown button on the toolbar allows selecting the COM port of the NiVerDig Arduino board. After opening the port of the device, the Control Panel becomes active. If the connection fails, select ‘Upload NiVerDig Sketch to Uno/Mega’ to program the Arduino with the sketch. The Control panel shows all defined Pins on the top row and all defined Tasks on the bottom row.
@@ -331,12 +331,17 @@ int NGS_OnTimer()
 
 
 ## Build your own NiVerDig
-To build your own NiVerDig, order a (compatible) Uno or Mega board, connect the required interface parts and upload the NiVerDig precompiled sketch. 
+To build your own NiVerDig, here are some instructions and pictures for inspiration.
+For interfacing with 5V TTL signals, it is best to pick an Arduino board that operates on 5V.
+I have played with Arduino Uno, Mega, Nano, Nano Every boards. The Arduino framework is the fastes on the Uno/Mega, the performance on the Nano and Nano Eery is much slower. So I advies to use a (compatible) Uno R3 or Mega R3 board.
+There are several solutions to connect sockets and wires to the Uno/Mega headers. 
+You can buy a [screw-terminal shield](https://www.amazon.com/Electronics-Salon-Terminal-Breakout-Arduino-MEGA-2560/dp/B07H9TJCWN) or manually connect a breakout cable (instructions below).
 
+Uno R3 or Mega R3 ?
 The Mega has more dynamic memory, allowing more pin and task definitions.
 The capabilities of the Uno and Mega:
 
-|              | Uno R3 | Mega |
+|              | Uno R3 | Mega R3 |
 | ------------ | --- | ---- |
 | Frequency    | 16 MHz | 16 MHz |
 | pins supporting interrupts | 2: pins 2,3 | 6: pins 2,3,18,19,20,21 |
