@@ -68,10 +68,21 @@ The fields accept the following values:
 
 Note: if a task that is started automatically is written to EEPROM that exceeds the Arduino speed capabilities, the NiVerDig will be unresponsive after boot. In that case hold the button for 1 seconds on boot to halt all tasks and update them. If that does not help, keep the button pressed for 5 seconds to reset all pin and task definitions to factory default.
 
-## interrupts
+### interrupts
 The AVR chip is a single thread device. The main thread runs in a loop and checks the pins and tasks if action is required. The time for one loop is about 300 us. For this thread, the jitter (fault in timing) is about 300 to 600 us. Independently of the main thread, the chip features a thread that runs upon a hardware interrupt. Tasks can be configured to run on the interrupt thread using the ‘interrupts’ option. When the start trigger pin supports interrupts, the task is started with a lower delay and jitter: about 35 us delay and 4 us jitter. For interrupts tasks, the ticking of the task is paced by the chip timer with a high timing accuracy (4 us jitter). Note that there is only one interrupt thread: when two interrupt tasks have scheduled action at the same time, the actions will be executed in sequence, so one of them will be too late.
 The Arduino UNO has two pins that support interrupts: pin 2 and 3. 
 The Arduino Mega has 6 pins that support interrupts: pins 2, 3, 18, 19, 20, and 21.
+
+## Scope
+The Scope page allows capturing the state of the pins in time. All standard scope control features are available from the top toolbar. Press the On/Off on the left to start capture. As long capture is active, all events are recorded to disk and be browsed using the button arrows. REcordings can be saved permenantly in binary format or in two text formats (absolute timing and relative timing)
+
+![image](https://user-images.githubusercontent.com/62476661/217359544-d93a63af-b7de-4c68-ba24-c8cd21e8913c.png)
+
+## Console
+The Console page shows the serial communication with the device. The text starting with < were sent to the device, the text starting with > arrived from the device. The command line on the bottom allows entering custom commands.
+
+![image](https://user-images.githubusercontent.com/62476661/217360434-73093e77-c695-40ef-8c34-9bef6b4bce3d.png)
+
 
 ## Example 1: Camera Trigger started manually
 This example shows how to trigger a camera 100 times at 20 ms intervals. Pin ‘BNC 1’ is an output pin.
