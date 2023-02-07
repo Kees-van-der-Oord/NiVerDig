@@ -235,9 +235,9 @@ On completion, the software will connect to the board:
 
 ### NiVerDig.mac
 Save this code in c:\program files\nis-elements\macros\NiVerDig.mac
+```
 global long NVD_port;
 
-```
 int main() { }
 
 int NVD_OpenPort(int port)
