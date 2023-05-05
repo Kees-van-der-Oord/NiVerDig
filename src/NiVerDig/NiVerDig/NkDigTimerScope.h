@@ -9,14 +9,14 @@ class panelScope;
 struct serialSample
 {
 	char channel;
-	char state;
+	byte state;
 	unsigned long tick;  // in us
 };
 
 struct fileSample
 {
 	char   channel;
-	char   state;
+	byte   state;
 	size_t timestamp;
 };
 #pragma pack(pop, r1)

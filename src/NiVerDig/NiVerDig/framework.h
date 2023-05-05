@@ -48,6 +48,10 @@
 #include <wx/filedlg.h>
 #include <wx/process.h>
 #include <wx/txtstrm.h>
+#include <wx/panel.h>
+#include <wx/bitmap.h>
+#include <wx/scrolwin.h>
+#include <wx/timer.h>
 
 #include <wx/msw/private.h>
 #include <shellapi.h>
@@ -67,8 +71,6 @@
 #define countof(A) (sizeof(A)/sizeof((A)[0]))
 #endif
 
-typedef unsigned char byte;
-
 inline size_t GetFilePointerEx(HANDLE hFile) {
     LARGE_INTEGER liOfs = { 0 };
     LARGE_INTEGER liNew = { 0 };
@@ -81,6 +83,10 @@ inline size_t GetFilePointerEx(HANDLE hFile) {
 #include "wxComboBoxEx.h"
 #include "wxManTogBtn.h"
 #include "wxLogFile.h"
+
+typedef unsigned char byte;
+typedef unsigned short word;
+
 #include "NkDigTimerGraph.h"
 #include "NkDigTimer.h"
 #include "NkDigTimerUpload.h"

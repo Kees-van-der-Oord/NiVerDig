@@ -5,6 +5,10 @@ wxString FormatPeriod(size_t period);
 size_t GetPeriod(long index);
 size_t FindPeriod(size_t timer);
 
+#define SYNC_CHANNEL -1   // -1: data entry for sync
+#define SYNC_END     0xFF // -1: end of scope mode
+#define SYNC_TICK    0xFE // -2: make the graph tick
+
 struct STimeRes
 {
 	int            id;
@@ -519,17 +523,17 @@ public:
 						{
 							if (m_format == FORMAT_TEXT_ABS)
 							{
-								line = wxString::Format("%ls\t%lld\t%hd\n", LogFormatLocalFileTimeUs(sample.timestamp), channel, sample.state);
-				}
-				else
-				{
-								line = wxString::Format("%lld\t%lld\t%hd\n", (sample.timestamp - start) / 10ULL, channel, sample.state);
+								line = wxString::Format("%ls\t%lld\t%hu\n", LogFormatLocalFileTimeUs(sample.timestamp), channel, sample.state);
 							}
-								WriteFile(h2, (const char*)line, line.length() * sizeof(char), NULL, NULL);
+							else
+							{
+								line = wxString::Format("%lld\t%lld\t%hu\n", (sample.timestamp - start) / 10ULL, channel, sample.state);
 							}
-						} while (ReadFile(h1, &sample, sizeof(sample), &read, NULL) && (read == sizeof(sample)));
-					}
+							WriteFile(h2, (const char*)line, line.length() * sizeof(char), NULL, NULL);
+						}
+					} while (ReadFile(h1, &sample, sizeof(sample), &read, NULL) && (read == sizeof(sample)));
 				}
+			}
 			if (h1 != INVALID_HANDLE_VALUE) CloseHandle(h1);
 			if (h2 != INVALID_HANDLE_VALUE) CloseHandle(h2);
 			if ((h1 == INVALID_HANDLE_VALUE) || (h2 == INVALID_HANDLE_VALUE))
@@ -626,7 +630,7 @@ public:
 	void push(char channel, char state, size_t timestamp)
 	{
 #ifdef _DEBUG
-//		OutputDebugString(wxString::Format(wxT("f %2d s %2d t %10lld\n"), channel, state, timestamp));
+//		OutputDebugString(wxString::Format(wxT("f %2d s %2u t %10lld\n"), channel, state, timestamp));
 #endif
 		// make room if full: write writes at least one
 		if ((m_count + 1) == size())
@@ -785,7 +789,7 @@ void* threadScope::Entry()
 	size_t offset = 0;
 
 	long read = NkComPort_ReadA(port, serialData, sizeof(serialSample), 400);
-	if ((read != sizeof(serialSample)) || (serSamples[0].channel != -1) || (serSamples[0].state != -2))
+	if ((read != sizeof(serialSample)) || (serSamples[0].channel != SYNC_CHANNEL) || (serSamples[0].state != SYNC_TICK))
 	{
 		// to do warn scope that something went wrong
 		return NULL;
@@ -856,7 +860,7 @@ void* threadScope::Entry()
 			if (s->channel < 0)
 			{
 				// special command ...
-				if (s->state == -2)
+				if (s->state == SYNC_TICK)
 				{
 					// tick to make the graph move: insert state for each pin
 					for (size_t i = 0; i < states.size(); ++i)
@@ -865,7 +869,7 @@ void* threadScope::Entry()
 					}
 					fileData.write(0);
 				}
-				if (s->state == -1)
+				if (s->state == SYNC_END)
 				{
 					// end of scope mode
 					fileData.m_delay = 0;

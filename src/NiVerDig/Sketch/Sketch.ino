@@ -60,15 +60,21 @@ NiVerDig/Sketch:
   version 8/32: 13-01-2023: changed terminator to CR+NL to satisfy both NIS \r and Arduino serial monitor \n
   version 10/33: 13-01-2023: fixed name first BNC, set default task count to 0
   version 12/34: 20-01-2023: no change: timestamp of fast pulses is overwritten: should be detected on PC side ...
+  version 13/35: 05-05-2023: fixed crash in COM port list - added ADC support
 */
 
 #include <limits.h>
 #include <Wire.h>
 #include <EEPROM.h>
 
+#define MAX_BYTE ((byte)0xFF)
+#ifndef sbi
+#define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
+#endif
+
 //#define DEBUG             // define to get debug output set with 'verbose' 
 //#define DEFAULTCONFIG     // defining this will NOT restore the pins and tasks from EEPROM
-#define DEFAULT_VERBSOSE 0  // set to 1 to get verbose output already during boot
+#define DEFAULT_VERBOSE 0  // set to 1 to get verbose output already during boot
 
 // for more storage, a 24LC256 can be attached to the SDA/SCL lines (A4/A5) (the nano every needs this)
 // Nano Every ATMega4809
@@ -121,6 +127,7 @@ bool checkpin(byte pin) { return pin < 14; }
 #undef RED_LED_PIN   // uno model does not have LED mounted
 #define ISRCOUNT 2
 byte isr_pins[ISRCOUNT] = {2, 3};
+byte checkAdcPin(byte pin) { if(dig_pin > 6) return MAX_BYTE, return pin; }
 
 // Nano
 #elif defined(ARDUINO_AVR_NANO)
@@ -133,6 +140,7 @@ bool checkpin(byte pin) { return pin < 14; }
 #undef RED_LED_PIN   // uno model does not have LED mounted
 #define ISRCOUNT 2
 byte isr_pins[ISRCOUNT] = {2, 3};
+byte checkAdcPin(byte pin) { if(pin > 8) return MAX_BYTE; return pin;}
 
 // Mega2560
 // version 26:
@@ -147,6 +155,7 @@ bool checkpin(byte pin) { return pin < 54; }
 #define PinStatus int
 #define ISRCOUNT 6
 byte isr_pins[ISRCOUNT] = {2, 3, 18, 19, 20, 21};
+byte checkAdcPin(byte pin) { if(pin > 16) return MAX_BYTE; return pin;}
 
 // Nano Every ATMega4809
 // Version 26:
@@ -171,6 +180,7 @@ bool checkpin(byte pin) { return (pin < HWPINCOUNT) && (pin != 18) && (pin != 19
 byte isr_pins[ISRCOUNT] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21};
 #undef BAUD_RATE
 #define BAUD_RATE  921600
+byte checkAdcPin(byte pin) { if(pin > 8) return MAX_BYTE; return pin;}
 
 #else
 #define HWPINCOUNT 100
@@ -180,6 +190,7 @@ bool checkpin(byte pin) { return true; }
 #define TASKCOUNT 4
 #define ISRCOUNT 0
 byte isr_pins[1] = {-1};
+byte checkAdcPin(byte pin) { return MAX_BYTE; }
 
 #endif
 
@@ -198,7 +209,6 @@ byte isr_pins[1] = {-1};
 #define MAX_KEY_SIZE (MAX_KEY_LENGTH+1)
 
 // when comparing a BYTE variable with -1, make sure the -1 is really a BYTE !
-#define MAX_BYTE ((byte)0xFF)
 #define NOTASK MAX_BYTE
 #define NOPIN  MAX_BYTE
 #define NOISR  MAX_BYTE
@@ -544,7 +554,7 @@ byte parse_pin_state(struct pin & p, byte default_value, const char * text)
   {
     lval = lval ? 1 : 0;
   }
-  else
+  else // PWM
   {
     if (lval < 0) lval = 0;
     if (lval > 255) lval = 255;
@@ -670,10 +680,16 @@ void cmd_pins(byte cmd_index, byte argc, char **argv)
   if ((argc > argi) && (propi == 3))
   {
     val = find_key_index(mode_info, argv[argi]);
+    if(val == MODADC) {
+      if(checkAdcPin(p.pin) == MAX_BYTE) {
+        p.pin = 0;
+      }
+    } else {
 #if defined(BUTTON_PIN)
-    if (p.pin == BUTTON_PIN) val = MODPUP; // button pin mode should always be pullup
+      if (p.pin == BUTTON_PIN) val = MODPUP; // button pin mode should always be pullup
 #endif
-    if (val != (byte) - 1) {
+    }
+    if (val != MAX_BYTE) {
       p.startup_mode = val;
       p.mode = val;
     }
@@ -734,7 +750,8 @@ enum actions
   ACTNEGPULS, // negative pulse (start low)
   ACTPOSPULS, // positive pulse (start high)
   ACTTOGLPIN, // toggle pin low/high
-  ACTLASTPIN = ACTTOGLPIN,
+  ACTSTAADC,  // start ADC conversion
+  ACTLASTPIN = ACTSTAADC,
   ACTSTOTASK, // stop task
   ACTSTATASK, // start task
   ACTRESTASK, // restart task
@@ -744,7 +761,7 @@ enum actions
 
 const char action_info[] PROGMEM =
   "none,"
-  "low,high,toggle,"
+  "low,high,toggle,adc,"
   "stop,start,restart,arm,kick"
   ;
   
@@ -855,8 +872,8 @@ void cmd_info_tasks()
   Serial.print(F(" <name>   : quoted task name [")); Serial.print(MAX_NAME_LENGTH); Serial.print(F("]" EOL));
   Serial.print(F(" <trigger>: <software> (auto|manual) <input-pin> (up|down|any|high|low) <in-task> (start|stop)" EOL));
   Serial.print(F(" <source> : <input-pin> (input pin-index or pin-name) <in-task> (task-index or task-name)" EOL));
-  Serial.print(F(" <action> : <output-pin> (low|high|toggle) <out-task> (arm|start|restart|stop|kick) <none> (none)" EOL));
-  Serial.print(F(" <target> : <output-pin> (output pin-index or pin-name) <out-task> (task-index or task-name) <none> ()" EOL));
+  Serial.print(F(" <action> : <output-pin> (low|high|toggle) <out-task> (arm|start|restart|stop|kick) <adc> (adc) <none> (none)" EOL));
+  Serial.print(F(" <target> : <output-pin> (output pin-index or pin-name) <out-task> (task-index or task-name) <adc> (adc pin-index or pin-name) <none> ()" EOL));
   Serial.print(F(" <count>  : [-1 to 1073741820] repeat count: -1 for continuous, 0 for single action" EOL));
   Serial.print(F(" <delay>  : n[s|ms|us] delay: 0 or between 100 us and 17:53" EOL));
   Serial.print(F(" <up>     : n[s|ms|us] up time: 0 or between 100 us and 17:53" EOL));
@@ -1136,15 +1153,18 @@ void cmd_tasks(byte cmd_index, byte argc, char**argv)
     {
       val = parse_index_or_name(argv[argi], (void*)&get_pin_name);
 #if defined(BUTTON_PIN)
-      if ((val != (byte) - 1) && (pins[val].pin == BUTTON_PIN)) val = t.dstpin; // don't allow changing the button pin !
+      if ((val != MAX_BYTE) && (pins[val].pin == BUTTON_PIN) && (pins[val].mode != MODADC)) val = t.dstpin; // don't allow changing the button pin !
 #endif
     }
     else
     {
       val = parse_index_or_name(argv[argi], (void*)&get_task_name);
     }
-    if (val != (byte) - 1) t.dstpin = val;
+    if (val != MAX_BYTE) t.dstpin = val;
     else if (t.action == ACTSTOTASK) t.dstpin = NOPIN; // stop all tasks
+    if((t.action == ACTSTAADC) && (pins[t.dstpin].mode != MODADC)) {
+      for(byte p = 0; p < pin_count; ++p) if(pins[p].mode == MODADC) { t.dstpin = p; break;}
+    }
   }
   if (!prop_mode) {
     ++argi;
@@ -1590,7 +1610,8 @@ struct s_isr_task_mode
   byte task;
   byte mode;
 };
- struct s_isr_task_mode isr_task_mode[ISRCOUNT] = {{0}};
+
+struct s_isr_task_mode isr_task_mode[ISRCOUNT] = {{0}};
 
 inline void handle_pin_interrupt(byte N)
 {
@@ -1628,7 +1649,7 @@ void update_pin_supports_intr(struct pin & p)
   p.intr_index = MAX_BYTE;
 #else
   byte intr = digitalPinToInterrupt(p.pin);
-  if ((mode_values[p.mode] == OUTPUT) || (intr == MAX_BYTE))
+  if((p.mode == MODADC) || (mode_values[p.mode] == OUTPUT) || (intr == MAX_BYTE))
   {
     p.intr_index = MAX_BYTE;
     return;
@@ -1907,7 +1928,7 @@ inline void check_input_pins()
   for (int pi = 0; pi < pin_count; ++pi)
   {
     struct pin & p = pins[pi];
-    if (mode_values[p.mode] == OUTPUT) continue;
+    if ((mode_values[p.mode] == OUTPUT) || (p.mode == MODADC)) continue;
     // todo: check if there are only trigger started tasks ?
     check_input_pin(pi);
   }
@@ -2029,6 +2050,79 @@ inline void toggle_pin_state(struct pin & p)
   p.changed = true;
 }
 
+byte adc_pin = MAX_BYTE;
+
+inline void start_adc(struct pin & p)
+{
+  adc_pin = &p - pins;
+  byte pin = p.pin;
+
+ // from analogRead()
+#if defined(analogPinToChannel)
+#if defined(__AVR_ATmega32U4__)
+	if (pin >= 18) pin -= 18; // allow for channel or pin numbers
+#endif
+	pin = analogPinToChannel(pin);
+#elif defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
+	if (pin >= 54) pin -= 54; // allow for channel or pin numbers
+#elif defined(__AVR_ATmega32U4__)
+	if (pin >= 18) pin -= 18; // allow for channel or pin numbers
+#elif defined(__AVR_ATmega1284__) || defined(__AVR_ATmega1284P__) || defined(__AVR_ATmega644__) || defined(__AVR_ATmega644A__) || defined(__AVR_ATmega644P__) || defined(__AVR_ATmega644PA__)
+	if (pin >= 24) pin -= 24; // allow for channel or pin numbers
+#else
+	if (pin >= 14) pin -= 14; // allow for channel or pin numbers
+#endif
+
+#if defined(DEBUG)
+  if(verbose >= 3) { Serial.print(__LINE__); Serial.print(" start adc"); Serial.print(pin); Serial.print(EOL); }
+#endif
+
+#if defined(ADCSRA) && defined(ADCSRB) && defined(ADMUX) &&defined(ADC)
+
+	// set the analog reference (high two bits of ADMUX) and select the
+	// channel (low 4 bits).  this also sets ADLAR (left-adjust result)
+	// to 0 (the default).
+	ADMUX = bit(REFS0) | (pin & 0x07); // REFSO: AVCC with external capacitor at the AREF pin is used as VRef
+
+#if defined(MUX5)
+	// the MUX5 bit of ADCSRB selects whether we're reading from channels
+	// 0 to 7 (MUX5 low) or 8 to 15 (MUX5 high).
+	//ADCSRB = (ADCSRB & ~(1 << MUX5)) | (((pin >> 3) & 0x01) << MUX5);
+	ADCSRB = (((pin >> 3) & 0x01) << MUX5) | 0; // free running mode
+#endif
+
+	//sbi(ADCSRA, ADSC);
+  ADCSRA =  bit(ADEN)  // Turn ADC on
+          | bit(ADSC)  // start single conversion
+          | bit(ADIE)  // Enable interrupt
+          | bit(ADPS0) | bit(ADPS1) | bit(ADPS2); // Prescaler of 128
+
+ /* 
+  ADCSRA =   bit(ADEN)  // Turn ADC on
+           | bit(ADATE) // ADC Auto Trigger Enable
+           | bit(ADIE)  // Enable interrupt
+           | bit(ADPS0) | bit(ADPS1) | bit(ADPS2); // Prescaler of 128
+*/
+#endif
+}
+
+ISR(ADC_vect) {
+  if(adc_pin >= pin_count) return;
+  struct pin & p = pins[adc_pin];
+  
+  // Must read low first
+  p.state = ADCL | (ADCH << 8);
+  p.tick = micros();
+  p.changed = true;
+   
+#if defined(DEBUG)
+  if(verbose >= 3) { Serial.print(__LINE__); Serial.print(" isr adc"); Serial.print(p.state); Serial.print(EOL); }
+#endif
+  // if free-running mode is not enabled,
+  // set ADSC in ADCSRA (0x7A) to start another ADC conversion
+  // ADCSRA |= B01000000;
+}
+
 inline void tick_task(byte ti)
 {
   struct task & t = tasks[ti];
@@ -2067,6 +2161,7 @@ inline void tick_task(byte ti)
         case ACTPOSPULS: set_pin_state(p, val); break;
         case ACTNEGPULS: set_pin_state(p, !val); break;
         case ACTTOGLPIN: if (val) toggle_pin_state(p); break;
+        case ACTSTAADC: start_adc(p);
       }
     }
   }
@@ -2453,8 +2548,12 @@ void send_scope_data()
 #if defined(DEBUG)
     if(!verbose)
 #endif
-    // read the pin state from the device because the isr() could have changed it
-    {Serial.write(pi); Serial.write(digitalRead(p.pin)); SerialWriteULong(p.tick);}
+    // read the pin state from the device because the isr() could have changed it ?
+    if(p.mode == MODADC) {
+      Serial.write(pi); Serial.write(byte(p.state>>2)); SerialWriteULong(p.tick);
+    } else    {
+      Serial.write(pi); Serial.write(digitalRead(p.pin)); SerialWriteULong(p.tick);
+    }
 #if defined(DEBUG)
     else
     {Serial.print(F("*"));Serial.print(pi); Serial.print(" "); Serial.print(p.state); Serial.print(" "); Serial.print(p.tick); Serial.print(EOL);}

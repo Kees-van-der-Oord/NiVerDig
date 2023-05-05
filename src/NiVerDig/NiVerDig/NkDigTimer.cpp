@@ -78,9 +78,6 @@ frameMain::frameMain(wxWindow* parent,
     m_profile = new wxFileConfig(wxT("NiVerDig"), wxT("Nikon"), m_profileName);
     RestoreSettings();
 
-    // events
-    m_timer.Bind(wxEVT_TIMER, &frameMain::OnTimer, this);
-
     // command line arguments
     if (wxGetApp().m_mode == appMain::MODE_VIEW)
     {
@@ -92,7 +89,6 @@ frameMain::frameMain(wxWindow* parent,
 frameMain::~frameMain()
 {
     StoreSettings();
-    m_timer.Stop();
     NkComPort_Close(&m_port);
 }
 
@@ -167,12 +163,21 @@ void GetAllPortsInfo(std::map<wxString, wxString> & ports)
     NkComPort_ListPortsEx(buf, 4096);
     for (wchar_t* p = buf; *p; )
     {
-        size_t tab = wcscspn(p, L"\t");
-        wxString port = wxString(p, tab);
-        if (p[tab] == L'\t') ++tab;
+        size_t tab = wcscspn(p, L"\t\n");
         size_t nl = wcscspn(p, L"\n");
-        wxString info = wxString(p + tab, nl - tab);
-        ports[port] = info;
+        wxString port = wxString(p, tab);
+        wxString info;
+        if (tab < nl)
+        {
+            if (p[tab] == L'\t') ++tab;
+            info = wxString(p + tab, nl - tab);
+        }
+        // some ports are listed twice ?? re-register them if the info field was empty
+        wxString tmp = ports[port];
+        if (!tmp.length())
+        {
+            ports[port] = info;
+        }
         p += nl;
         if (*p) ++p;
     }
@@ -322,7 +327,6 @@ wxString FindKnownVidPid(wxString info)
 
 void frameMain::SetPort(wxString port)
 {
-    m_timer.Stop();
     NkComPort_Close(&m_port);
     m_statusBar->SetStatusText(wxT("not connected"));
     m_portName.Clear();
@@ -408,24 +412,6 @@ bool frameMain::IsConnected()
     return NkComPort_IsConnected(m_port);
 }
 
-void frameMain::OnTimer(wxTimerEvent& event)
-{
-    if (m_port == NULL) return;
-    if (m_epanel != ECONTROLPANEL) return;
-    wchar_t answer[1024] = { 0 };
-    // don't use the WriteLine and ReadLine functions to prevent logging
-    NkComPort_WriteA(m_port, ".\n",2);
-    //size_t count = m_pins.items.size() + m_tasks.items.size();
-    //while (count)
-    while(1)
-    {
-        long len = NkComPort_ReadLine(m_port, answer, 1024, 200);
-        if (len <= 0) return;
-        if (answer[0] == wxT('.')) break;
-        ParseStateChange(answer);
-    }
-}
-
 long frameMain::ReadLine(wchar_t* answer, long size, unsigned long timeout)
 {
     long count = NkComPort_ReadLine(m_port, answer, size, timeout);
@@ -442,64 +428,6 @@ void frameMain::ReadAll()
     wchar_t answer[1024];
     while (ReadLine(answer, 1024, 1) > 0)
     {
-    }
-}
-
-void frameMain::ParseStateChange(wchar_t* line)
-{
-    //wxRegEx pinState(wxT("\\*pin\\[(\\d+)\\]=(\\d+)"), wxRE_EXTENDED);
-    wxRegEx pinState(wxT("p (\\d+) (\\d+)"), wxRE_EXTENDED);
-    if (pinState.Matches(line))
-    {
-        size_t ipin;
-        pinState.GetMatch(line, 1).ToULongLong(&ipin);
-        --ipin;
-        if (ipin >= m_pins.items.size()) return;
-        SItem& pin = m_pins.items[ipin];
-        pinState.GetMatch(line, 2).ToLongLong(&pin.state);
-        if (pin.control)
-        {
-            wxManualToggleButton* btn = dynamic_cast<wxManualToggleButton*>(pin.control);
-            if (btn)
-            {
-                btn->SetValue(pin.state);
-                long nv = btn->GetValue();
-                btn->Refresh();
-            }
-            else
-            {
-                wxComboBoxEx* cb = dynamic_cast<wxComboBoxEx*>(pin.control);
-                if (cb)
-                {
-                    cb->SetSelection(pin.state);
-                }
-            }
-        }
-        return;
-    }
-    //wxRegEx taskState(wxT("\\*task\\[(\\d+)\\]=(\\d+)"), wxRE_EXTENDED);
-    wxRegEx taskState(wxT("t (\\d+) (\\d+)"), wxRE_EXTENDED);
-    if (taskState.Matches(line))
-    {
-        size_t itask;
-        taskState.GetMatch(line, 1).ToULongLong(&itask);
-        --itask;
-        if (itask >= m_tasks.items.size()) return;
-        SItem& task = m_tasks.items[itask];
-        taskState.GetMatch(line, 2).ToLongLong(&task.state);
-        if (task.state == 2) task.state = 0; // finished -> idle
-        if (task.state == 3) task.state = 2; // fired
-        if (task.control)
-        {
-            wxManualToggleButton* btn = dynamic_cast<wxManualToggleButton*>(task.control);
-            if (btn)
-            {
-                btn->SetValue(task.state);
-                long nv = btn->GetValue();
-                btn->Refresh();
-            }
-        }
-        return;
     }
 }
 
@@ -570,7 +498,6 @@ void frameMain::ShowPanel(int panel, bool refresh)
             return;
         }
     }
-    m_timer.Stop();
     m_epanel = ENOPANEL;
     m_mainSizer->Clear(true);
     m_panel = NULL;
@@ -592,18 +519,6 @@ void frameMain::ShowPanel(int panel, bool refresh)
     m_toolBar->Refresh();
 
     Layout();
-    if (m_port && (m_epanel == ECONTROLPANEL))
-    {
-        m_timer.Start(200);
-    }
-    /*
-        wxSize sWnd = GetSize();
-        wxSize sClt = GetClientSize();
-        wxSize sPanel = m_mainPanel->GetBestSize();
-        sWnd -= sClt;
-        sWnd += sPanel;
-        this->SetSize(sWnd);
-    */
 }
 
 void frameMain::ParseItems(wxString command, SItems& items)

@@ -134,13 +134,14 @@ public:
 				size_t width = 100;
 				bool inputpins = field.values[0] == wxT("input pin-index or pin-name");
 				bool outputpins = field.values[0] == wxT("output pin-index or pin-name");
+				bool adcpins = field.values[0] == wxT("adc pin-index or pin-name");
 				if (field.name == wxT("options"))
 				{
 					wxArrayString vs(wxSplit(field.values[0], wxT(' ')));
 					NkAddAllCombinations(values, vs, wxEmptyString, 0);
 					width = 300;
 				}
-				else if(inputpins || outputpins)
+				else if(inputpins || outputpins || adcpins)
 				{
 					size_t name_index = m_main->m_pins.fields.find(wxT("name"));
 					SItems* items = NULL;
@@ -159,7 +160,8 @@ public:
 						{
 							SItem& item(items->items[i]);
 							if ((inputpins && ((item.type == SItem::eInputPin) || (item.type == SItem::ePullupPin))) ||
-								(outputpins && ((item.type == SItem::eOutputPin) || (item.type == SItem::ePwmPin))))
+								(outputpins && ((item.type == SItem::eOutputPin) || (item.type == SItem::ePwmPin))) ||
+								(adcpins && (item.type == SItem::eAdcPin)))
 							{
 								values.push_back(item.values[name_index]);
 							}
