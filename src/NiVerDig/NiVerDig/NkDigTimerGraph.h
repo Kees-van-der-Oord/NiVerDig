@@ -1,11 +1,6 @@
 #pragma once
 
-#include <wx/panel.h>
-#include <wx/bitmap.h>
-#include <wx/scrolwin.h>
-#include <wx/timer.h>
 #include "NkDigTimerScope.h"
-
 
 class  NkDigTimerGraphEvent;
 wxDECLARE_EVENT(NKDIGTIMERGRAPHEVENT, NkDigTimerGraphEvent);
@@ -89,15 +84,17 @@ public:
 	void OnPaint(wxPaintEvent& WXUNUSED(evt));
 	void OnTimer(wxTimerEvent& event);
 
+	enum { NOT_INITIALIZED = 0xFFFF };
+
 	class CPinLine
 	{
 	public:
-		wxString      label;
-		int           top;
-		int           bottom;
-		unsigned char value;
-//		size_t        first;
-		size_t        last;
+		wxString  label;
+		int       top;
+		int       bottom;
+		word      value;
+		size_t    last;
+		int       type; // e.g. SItem::eAdcPin
 	};
 	class CPinLines : public std::vector<CPinLine> 
 	{
@@ -106,8 +103,7 @@ public:
 		{
 			for (auto& line : *this)
 			{
-				line.value = -1;
-				//line.first = 0;
+				line.value = NOT_INITIALIZED;
 				line.last = 0;
 			}
 		}

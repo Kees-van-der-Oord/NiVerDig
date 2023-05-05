@@ -125,6 +125,10 @@ void NkDigTimerGraph::Init(frameMain* main, HANDLE file)
 { 
 	m_main = main;
 	m_lines.resize(m_main->m_pins.items.size());
+	for (size_t i = 0; i < m_lines.size(); ++i)
+	{
+		m_lines[i].type = m_main->m_pins.items[i].type;
+	}
 	m_reader.SetFile(file);
 }
 
@@ -159,14 +163,39 @@ void NkDigTimerGraph::OnSize(wxSizeEvent& event)
 		int line_height = m_graphArea.height / m_lines.size();
 		if (line_height < 20) line_height = 20;
 		if (line_height > 50) line_height = 50;
+		int adc_height = line_height;
+		int extra = m_graphArea.height - m_lines.size() * line_height;
+		if (extra > 0)
+		{
+			int adc_count = 0;
+			for (size_t i = 0; i < m_lines.size(); ++i)
+			{
+				CPinLine& line = m_lines[i];
+				if (line.type == SItem::eAdcPin)
+				{
+					++adc_count;
+				}
+			}
+			if (adc_count)
+			{
+				extra /= adc_count;
+				adc_height += extra;
+				if (adc_height > (256 + 8))
+				{
+					adc_height = 256 + 8;
+				}
+			}
+		}
+		int pos = m_graphArea.GetTop();
 		for (size_t i = 0; i < m_lines.size(); ++i)
 		{
 			CPinLine& line = m_lines[i];
 			line.label = m_main->m_pins.items[i].values[1];
-			line.top = m_graphArea.GetTop() + i * line_height;
-			line.bottom = m_lines[i].top + line_height;
+			line.top = pos;
+			pos += line.type == SItem::eAdcPin ? adc_height : line_height;
+			line.bottom = pos;
 		}
-		m_graphArea.height = m_lines[m_lines.size() - 1].bottom - m_graphArea.y;
+		m_graphArea.height = pos - m_graphArea.y;
 	}
 
 	m_drawGrid = true;
@@ -668,23 +697,43 @@ void NkDigTimerGraph::OnPaint(wxPaintEvent& WXUNUSED(evt))
 			m_last = m_first + m_period;
 		}
 		size_t line_index = s->channel;
-		//if (line_index >= m_lines.size()) line_index = ~line_index;
 		if (line_index < m_lines.size())
 		{
 			auto& line = m_lines[line_index];
 			size_t t = s->timestamp;
-			if ((line.value != 0xFF) && (t >= m_first) && (line.last < m_last))
+			if ((line.value != NOT_INITIALIZED) && (t >= m_first) && (line.last < m_last))
 			{
 				if (t > m_last) t = m_last;
 				int x1 = m_graphArea.x;
 				if (line.last > m_first) x1 += (line.last - m_first) * m_hscale;
 				int x2 = m_graphArea.x + (t - m_first) * m_hscale;
-				int y1 = line.value ? line.top + 4 : line.bottom - 4;
+				int y1;
+				if (line.type == SItem::eAdcPin)
+				{
+					int pos = ( int(line.value) * (line.bottom - line.top - 8)) / 256;
+					y1 = line.bottom - 4 - pos;
+				}
+				else
+				{
+					y1 = line.value ? line.top + 4 : line.bottom - 4;
+				}
 				MoveToEx(hdc, x1, y1, NULL);
-				LineTo(hdc, x2, y1);
+				if (line.type != SItem::eAdcPin)
+				{
+					LineTo(hdc, x2, y1);
+				}
 				if (s->timestamp < m_last)
 				{
-					int y2 = s->state ? line.top + 4 : line.bottom - 4;
+					int y2;
+					if (line.type == SItem::eAdcPin)
+					{
+						int pos = (int(s->state) * (line.bottom - line.top - 8)) / 256;
+						y2 = line.bottom - 4 - pos;
+					}
+					else
+					{
+						y2 = s->state ? line.top + 4 : line.bottom - 4;
+					}
 					LineTo(hdc, x2, y2);
 				}
 			}
@@ -698,10 +747,12 @@ void NkDigTimerGraph::OnPaint(wxPaintEvent& WXUNUSED(evt))
 	{
 		last = m_last;
 	}
+	// draw the line of the current state up to last.
+	// to do: for analog lines: the next data point after 'last' and draw a diagonal line ??
 	int x2 = m_graphArea.x + (last - m_first) * m_hscale;
 	for (auto& line : m_lines)
 	{
-		if (line.last < last)
+		if ((line.last < last)/* && (line.type != SItem::eAdcPin)*/)
 		{
 			int x1 = m_graphArea.x;
 			if (line.last > m_first) x1 += (line.last - m_first) * m_hscale;
@@ -810,7 +861,7 @@ void NkDigTimerGraph::WindBack(size_t first)
 	for (auto& line : m_lines)
 	{
 		line.last = m_current;
-		line.value = -1;
+		line.value = 0xFFFF;
 	}
 	size_t count = m_lines.size();
 	for (; s; s = m_reader.Prev())

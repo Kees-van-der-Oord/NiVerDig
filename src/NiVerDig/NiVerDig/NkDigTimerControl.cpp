@@ -4,6 +4,7 @@ class panelControl : public formControl
 {
 public:
 	enum {ID_PIN=1000, ID_TASK=2000 };
+
 	panelControl(frameMain* main)
 		: formControl(main->m_mainPanel)
 		, m_main(main)
@@ -12,6 +13,13 @@ public:
 		UpdatePins();
 		UpdateTasks();
 		Layout();
+		m_timer.Bind(wxEVT_TIMER, &panelControl::OnTimer, this);
+		m_timer.Start(200);
+	}
+
+	~panelControl()
+	{
+		m_timer.Stop();
 	}
 
 	void UpdatePins()
@@ -50,6 +58,7 @@ public:
 			hsizer = new wxBoxSizer(wxHORIZONTAL);
 			hsizer->Add(0, 0, 1, wxEXPAND, 0);
 			wxControl * control = NULL;
+			wxSizer* sizer = NULL;
 			if (pin.type == SItem::ePwmPin)
 			{
 				wxComboBoxEx * cb = new wxComboBoxEx(m_panelPins,ID_PIN + ipin, wxEmptyString, wxDefaultPosition, wxSize(48,-1), 0, NULL, wxCB_READONLY);
@@ -69,6 +78,14 @@ public:
 				}
 				control = cb;
 			}
+			else if (pin.type == SItem::eAdcPin)
+			{
+				wxStaticText* tc = new wxStaticText(m_panelPins, ID_PIN + ipin, wxString::Format(wxT("%lld"), pin.state), wxDefaultPosition, wxSize(32,-1), wxALIGN_CENTRE_HORIZONTAL);
+				sizer = new wxBoxSizer(wxVERTICAL);
+				sizer->Add(-1, 12, 0, 0, 0);
+				sizer->Add(tc, wxEXPAND);
+				control = tc;
+			}
 			else
 			{
 				wxManualToggleButton* button = new wxManualToggleButton(m_panelPins, ID_PIN + ipin, wxNullBitmap, wxDefaultPosition, wxSize(32, 32), wxBU_AUTODRAW | wxBORDER_NONE);
@@ -86,12 +103,13 @@ public:
 				button->SetValue(pin.state);
 				control = button;
 			}
-			if(control)	hsizer->Add(control, 0, wxALL, 5);
+			if (sizer) hsizer->Add(sizer);
+			else if(control) hsizer->Add(control, 0, wxALL, 5);
 			pin.control = control;
 			hsizer->Add(0, 0, 1, wxEXPAND, 5);
 			vsizer->Add(hsizer, 0, wxEXPAND, 0);
 
-			control->SetBackgroundColour(m_main->GetBackgroundColour());
+			if(control) control->SetBackgroundColour(m_main->GetBackgroundColour());
 
 			m_pinSizer->Add(vsizer, 0, 0, 5);
 		}
@@ -156,8 +174,6 @@ public:
 		}
 	}
 
-	frameMain* m_main;
-
 	void m_pinToggle(wxCommandEvent& event)
 	{
 		//event.Skip();
@@ -221,7 +237,102 @@ public:
 		}
 	}
 
+	void OnTimer(wxTimerEvent& event)
+	{
+		if (m_main->m_port == NULL) return;
+		wchar_t answer[1024] = { 0 };
+		// don't use the WriteLine and ReadLine functions to prevent logging
+		NkComPort_WriteA(m_main->m_port, ".\n", 2);
+		while (1)
+		{
+			long len = NkComPort_ReadLine(m_main->m_port, answer, 1024, 200);
+			if (len <= 0) return;
+			if (answer[0] == wxT('.')) break;
+			ParseStateChange(answer);
+		}
+	}
+
+	void ParseStateChange(wchar_t* line)
+	{
+		//wxRegEx pinState(wxT("\\*pin\\[(\\d+)\\]=(\\d+)"), wxRE_EXTENDED);
+		wxRegEx pinState(wxT("p (\\d+) (\\d+)"), wxRE_EXTENDED);
+		if (pinState.Matches(line))
+		{
+			size_t ipin;
+			pinState.GetMatch(line, 1).ToULongLong(&ipin);
+			--ipin;
+			if (ipin >= m_main->m_pins.items.size()) return;
+			SItem& pin = m_main->m_pins.items[ipin];
+			pinState.GetMatch(line, 2).ToLongLong(&pin.state);
+			if (pin.control)
+			{
+				switch (pin.type)
+				{
+					case SItem::eAdcPin:
+					{
+						wxStaticText * st = dynamic_cast<wxStaticText*>(pin.control);
+						if (st)
+						{
+							st->SetLabel(wxString::Format(wxT("%lld"),pin.state));
+						}
+					}
+					break;
+					case SItem::ePwmPin:
+					{
+						wxComboBoxEx* cb = dynamic_cast<wxComboBoxEx*>(pin.control);
+						if (cb)
+						{
+							cb->SetSelection(pin.state);
+						}
+					}
+					break;
+					default:
+					{
+						wxManualToggleButton* btn = dynamic_cast<wxManualToggleButton*>(pin.control);
+						if (btn)
+						{
+							btn->SetValue(pin.state);
+							long nv = btn->GetValue();
+							btn->Refresh();
+						}
+					}
+					break;
+				}
+			}
+			return;
+		}
+		//wxRegEx taskState(wxT("\\*task\\[(\\d+)\\]=(\\d+)"), wxRE_EXTENDED);
+		wxRegEx taskState(wxT("t (\\d+) (\\d+)"), wxRE_EXTENDED);
+		if (taskState.Matches(line))
+		{
+			size_t itask;
+			taskState.GetMatch(line, 1).ToULongLong(&itask);
+			--itask;
+			if (itask >= m_main->m_tasks.items.size()) return;
+			SItem& task = m_main->m_tasks.items[itask];
+			taskState.GetMatch(line, 2).ToLongLong(&task.state);
+			if (task.state == 2) task.state = 0; // finished -> idle
+			if (task.state == 3) task.state = 2; // fired
+			if (task.control)
+			{
+				wxManualToggleButton* btn = dynamic_cast<wxManualToggleButton*>(task.control);
+				if (btn)
+				{
+					btn->SetValue(task.state);
+					long nv = btn->GetValue();
+					btn->Refresh();
+				}
+			}
+			return;
+		}
+	}
+
+
+
+
+	frameMain*            m_main;
 	wxBitmapToggleButton* m_halt;
+	wxTimer               m_timer;
 };
 
 wxPanel* CreateControlPanel(frameMain* parent)

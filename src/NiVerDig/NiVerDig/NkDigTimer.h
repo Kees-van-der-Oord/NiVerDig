@@ -179,7 +179,6 @@ public:
     long ReadLine(wchar_t * answer, long size, unsigned long timeout);
     void ReadAll();
     long WriteLine(const wchar_t* line);
-    void ParseStateChange(wchar_t* line);
     void SendItems(SItems& items);
     bool SaveItems(SItems& items);
     void WriteTasks(SItems& items);
@@ -190,7 +189,6 @@ public:
 private:
     std::map<wxString,wxString> m_ports;
     std::vector<wxString> m_portIds;
-    wxTimer m_timer;
 
     wxDECLARE_EVENT_TABLE();
     void OnMenuCommandPort(wxCommandEvent& evt);
@@ -208,7 +206,6 @@ private:
     void RestoreSettings();
 
     void ShowPanel(int panel, bool refresh);
-    void OnTimer(wxTimerEvent& event);
 };
 
 size_t GetCurrentTimeInMs();
