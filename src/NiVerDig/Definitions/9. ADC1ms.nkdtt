@@ -1,0 +1,2 @@
+dtask *
+dtask	1	adc	auto		adc	ADC	-1	0s	1ms	1ms	arm-on-startup interrupts

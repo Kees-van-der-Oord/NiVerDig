@@ -50,14 +50,15 @@ struct scopePages
 	, m_size(0)
 	, m_begin(NULL)
 	, m_end(NULL)
+	, m_lastsample(0)
 	{}
 
 	~scopePages()
 	{
-		SetFile(INVALID_HANDLE_VALUE);
+		SetFile(INVALID_HANDLE_VALUE,0);
 	}
 
-	void SetFile(HANDLE file)
+	void SetFile(HANDLE file, size_t lastsample)
 	{
 		if (m_file != INVALID_HANDLE_VALUE)
 		{
@@ -68,6 +69,7 @@ struct scopePages
 		m_size = 0;
 		m_begin = NULL;
 		m_end = NULL;
+		m_lastsample = lastsample;
 	}
 
 	void Unmap()
@@ -91,7 +93,14 @@ struct scopePages
 	{
 		if (count < 1) count = 1;
 		Unmap();
-		GetFileSizeEx(m_file, (LARGE_INTEGER*)&m_filesize);
+		if (m_lastsample)
+		{
+			m_filesize = m_lastsample;
+		}
+		else
+		{
+			GetFileSizeEx(m_file, (LARGE_INTEGER*)&m_filesize);
+		}
 		m_offset = m_mapPageSize * page;
 		if (m_offset >= m_filesize) return NULL;
 		m_size = m_mapPageSize * (count + 1); // allocate one page more to handle non-aligned samples
@@ -112,7 +121,14 @@ struct scopePages
 	{
 		if (count < 2) count = 2;
 		size_t filesize;
-		GetFileSizeEx(m_file, (LARGE_INTEGER*)&filesize);
+		if (m_lastsample)
+		{
+			filesize = m_lastsample;
+		}
+		else
+		{
+			GetFileSizeEx(m_file, (LARGE_INTEGER*)&filesize);
+		}
 		//OutputDebugString(wxString::Format(wxT("size %lld\n"), filesize));
 		if ((m_offset + m_size) >= filesize)
 		{
@@ -148,6 +164,7 @@ struct scopePages
 	fileSample* m_begin;
 	fileSample* m_end;
 	static DWORD m_mapPageSize;
+	size_t m_lastsample;
 };
 
 class scopeReader
@@ -164,7 +181,7 @@ public:
 		Reset();
 	}
 
-	void SetFile(HANDLE file) { m_file = file;  m_pages.SetFile(file); m_sample = NULL; }
+	void SetFile(HANDLE file, size_t lastsample) { m_file = file; m_pages.SetFile(file, lastsample); m_sample = NULL; }
 	fileSample* First(size_t first);
 	void Reset();
 	fileSample* Next();
@@ -172,5 +189,5 @@ public:
 
 	HANDLE      m_file;
 	scopePages  m_pages;
-	fileSample* m_sample; // pointer to current sample
+	fileSample* m_sample;   // pointer to current sample
 };

@@ -1,0 +1,8 @@
+dpin *
+dpin	1	BNC black	2	pullup	0	0
+dpin	2	BNC grey	3	pullup	0	0
+dpin	3	BNC red	18	pullup	0	0
+dpin	4	BNC green	19	pullup	0	0
+dpin	5	BNC blue	20	pullup	0	0
+dpin	6	button	8	pullup	0	0
+dpin	7	ADC	0	adc	0	0

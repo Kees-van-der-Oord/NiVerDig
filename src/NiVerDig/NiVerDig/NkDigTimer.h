@@ -52,7 +52,7 @@ struct SItem
     bool changed;
 
     SItem() : label(NULL), control(NULL), type(0), state(0), changed(false) {}
-    SItem(wxString index, wxString name) : label(NULL), control(NULL), type(0), state(0), changed(false) { values.push_back(index), values.push_back(name); }
+    SItem(wxString index, wxString name, EItemType type) : label(NULL), control(NULL), type(type), state(0), changed(false) { values.push_back(index), values.push_back(name); }
 };
 
 struct SItems
@@ -117,17 +117,61 @@ struct SItems
         if (!fields[field_index].modes.count(mode)) return field;
         return fields[field_index].modes[mode];
     }
-    bool LoadFromFile(HANDLE data)
+    bool LoadFromFile(HANDLE data, size_t & lastsample)
     {
         clear();
         fields.push_back(SField(wxT("index"), SField::eString));
         fields.push_back(SField(wxT("name"), SField::eString));
-        fileSample sample = { 0 };
-        for (size_t i = 0; ReadFile(data, &sample, sizeof(sample), NULL, NULL); ++i)
+
+        // try to read the channel info from the appendix
+        while (1)
         {
-            if (sample.channel != i) break;
-            wxString index = wxString::Format(wxT("%lld"), i + 1);
-            items.push_back(SItem(index, index));
+            LARGE_INTEGER len;
+            LARGE_INTEGER null;
+            len.QuadPart = null.QuadPart = 0;
+            SetFilePointerEx(data, null, &len, FILE_END);
+            if (len.QuadPart < 8) break;
+            LARGE_INTEGER pos;
+            LARGE_INTEGER pos2;
+            SetFilePointer(data, -8, 0, FILE_END);
+            DWORD read = 0;
+            ReadFile(data, &pos.QuadPart, 8, &read, NULL);
+            if (!read) break;
+            SetFilePointerEx(data, pos, &pos2, FILE_BEGIN);
+            if (pos.QuadPart != pos2.QuadPart) break;
+            size_t buf_len = len.QuadPart - pos.QuadPart;
+            if (buf_len >= 8192) break;
+            wchar_t buf[4096];
+            ReadFile(data, buf, buf_len, &read, NULL);
+            if (read != buf_len) break;
+            buf[buf_len / 2] = 0;
+            wxString str(buf);
+            wxArrayString lines = wxSplit(str, wxT('\n'));
+            for (size_t i = 0; i < lines.size(); ++i)
+            {
+                wxArrayString fields = wxSplit(lines[i], wxT('\t'));
+                if (fields.size() != 4) break;
+                wxLongLong_t index = -1;
+                fields[1].ToLongLong(&index);
+                if (index != i) break;
+                SItem::EItemType type;
+                fields[3].ToLong((long*)&type);
+                items.push_back(SItem(fields[1], fields[2], type));
+            }
+            lastsample = pos.QuadPart;
+            break;
+        }
+        if (!items.size())
+        {
+            // read the channels from the first samples
+            SetFilePointer(data, 0, NULL, FILE_BEGIN);
+            fileSample sample = { 0 };
+            for (size_t i = 0; ReadFile(data, &sample, sizeof(sample), NULL, NULL); ++i)
+            {
+                if (sample.channel != i) break;
+                wxString index = wxString::Format(wxT("%lld"), i + 1);
+                items.push_back(SItem(index, index, SItem::eInputPin));
+            }
         }
         SetFilePointer(data, 0, NULL, FILE_BEGIN);
         return items.size() > 0;

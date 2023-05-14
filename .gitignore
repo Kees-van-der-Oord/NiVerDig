@@ -1,0 +1,17 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/.vs
+/src/.vs/NiVerDig
+/src/NiVerDig/NiVerDig/.vs/NiVerDig
+/src/NiVerDig/NiVerDig/x64
+/src/NiVerDig/NiVerDig/forms.cpp
+/src/NiVerDig/NiVerDig/forms.h
+/src/NiVerDig/NiVerDig/NiVerDig.vcxproj.user
+/src/NiVerDig/NiVerDig/NkDigTimer.aps
+/src/NkComPort/.vs/NkComPortV17
+/src/NkComPort/NkComPort/x64
+/src/NkComPort/NkComPort/NkComPortV17.vcxproj.user
+/src/x64/Debug
+/src/x64/Release
