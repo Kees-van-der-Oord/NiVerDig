@@ -986,6 +986,9 @@ bool appMain::OnInit()
         return false;
 
     wxInitAllImageHandlers();
+    // change the current directory to the binary folder so the res/*.png can be loaded
+    wxFileName f(wxStandardPaths::Get().GetExecutablePath());
+    SetCurrentDirectory(f.GetPath());
 
     // this will make that the GetConfigDir() returns %PROGRAMDATA%\Nikon\NiVerDig
     SetVendorName(wxT("Nikon"));

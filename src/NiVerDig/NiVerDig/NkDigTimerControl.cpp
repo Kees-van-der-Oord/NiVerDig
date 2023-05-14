@@ -36,8 +36,6 @@ public:
 
 		m_main->ParsePins();
 
-		wxFileName f(wxStandardPaths::Get().GetExecutablePath());
-		wxString bin(f.GetPath() + wxT("/"));
 		SItems& pins(m_main->m_pins);
 		for (size_t ipin = 0; ipin < pins.items.size(); ++ipin)
 		{
@@ -91,13 +89,13 @@ public:
 				wxManualToggleButton* button = new wxManualToggleButton(m_panelPins, ID_PIN + ipin, wxNullBitmap, wxDefaultPosition, wxSize(32, 32), wxBU_AUTODRAW | wxBORDER_NONE);
 				if ((pin.type >= SItem::eInputPin) && (pin.type <= SItem::ePullupPin))
 				{
-					button->SetBitmap(wxBitmap(bin + wxT("res/BlackCircle.png"), wxBITMAP_TYPE_ANY));
-					button->SetBitmapPressed(wxBitmap(bin + wxT("res/GreenCircle.png"), wxBITMAP_TYPE_ANY));
+					button->SetBitmap(wxBitmap(wxT("res/BlackCircle.png"), wxBITMAP_TYPE_ANY));
+					button->SetBitmapPressed(wxBitmap(wxT("res/GreenCircle.png"), wxBITMAP_TYPE_ANY));
 				}
 				else if (pin.type == SItem::eOutputPin)
 				{
-					button->SetBitmap(wxBitmap(bin + wxT("res/BlackRect.png"), wxBITMAP_TYPE_ANY));
-					button->SetBitmapPressed(wxBitmap(bin + wxT("res/GreenRect.png"), wxBITMAP_TYPE_ANY));
+					button->SetBitmap(wxBitmap(wxT("res/BlackRect.png"), wxBITMAP_TYPE_ANY));
+					button->SetBitmapPressed(wxBitmap(wxT("res/GreenRect.png"), wxBITMAP_TYPE_ANY));
 				}
 				button->Connect(wxEVT_TOGGLEBUTTON, wxCommandEventHandler(panelControl::m_pinToggle), NULL, this);
 				button->SetValue(pin.state);
@@ -124,14 +122,11 @@ public:
 			return;
 		}
 
-		wxFileName f(wxStandardPaths::Get().GetExecutablePath());
-		wxString bin(f.GetPath() + wxT("/"));
-
 		m_main->ParseTasks();
 
 		m_halt = new wxBitmapToggleButton(m_panelTasks, wxID_ANY, wxNullBitmap, wxDefaultPosition, wxSize(48, 48), wxBU_AUTODRAW | wxBORDER_NONE);
-		m_halt->SetBitmap(wxBitmap(bin + wxT("res/TaskStopAll.png"), wxBITMAP_TYPE_ANY));
-		m_halt->SetBitmapPressed(wxBitmap(bin + wxT("res/TaskStopAllDown.png"), wxBITMAP_TYPE_ANY));
+		m_halt->SetBitmap(wxBitmap(wxT("res/TaskStopAll.png"), wxBITMAP_TYPE_ANY));
+		m_halt->SetBitmapPressed(wxBitmap(wxT("res/TaskStopAllDown.png"), wxBITMAP_TYPE_ANY));
 		m_halt->SetBackgroundColour(m_main->GetBackgroundColour());
 		m_taskSizer->Add(m_halt, 0, 0, 5);
 		m_halt->Connect(wxEVT_TOGGLEBUTTON, wxCommandEventHandler(panelControl::m_buttonHalt), NULL, this);
@@ -162,9 +157,9 @@ public:
 			vsizer->Add(hsizer, 0, wxEXPAND, 0);
 
 			task.control = control;
-			control->SetBitmap(wxBitmap(bin + wxT("res/TaskStateIdle.png"), wxBITMAP_TYPE_ANY));
-			control->SetBitmapPressed(wxBitmap(bin + wxT("res/TaskStateArmed.png"), wxBITMAP_TYPE_ANY));
-			control->SetBitmap3rd(wxBitmap(bin + wxT("res/TaskStateFired.png"), wxBITMAP_TYPE_ANY));
+			control->SetBitmap(wxBitmap(wxT("res/TaskStateIdle.png"), wxBITMAP_TYPE_ANY));
+			control->SetBitmapPressed(wxBitmap(wxT("res/TaskStateArmed.png"), wxBITMAP_TYPE_ANY));
+			control->SetBitmap3rd(wxBitmap(wxT("res/TaskStateFired.png"), wxBITMAP_TYPE_ANY));
 			control->SetBackgroundColour(m_main->GetBackgroundColour());
 			control->Connect(wxEVT_LEFT_UP, wxMouseEventHandler(panelControl::m_taskOnLeftUp), NULL, this);
 

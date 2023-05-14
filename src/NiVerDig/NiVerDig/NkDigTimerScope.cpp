@@ -129,13 +129,14 @@ public:
 	, m_save(false)
 	, m_format(FORMAT_BINARY)
 	, m_mode(file.length() ? MODE_VIEW : MODE_RECORD)
+	, m_lastsample(0)
 	{
 		if (m_mode == MODE_VIEW)
 		{
 			m_tool->EnableTool(ID_TOOLON, false);
 		}
 		OpenDataFile(file);
-		m_graph->Init(m_main,m_data);
+		m_graph->Init(m_main,m_data,m_lastsample);
 
 		if (m_main->m_pins.items.size() && (m_main->m_pins.items[0].values.size() > 1))
 		{
@@ -195,7 +196,7 @@ public:
 			m_tool->ToggleTool(ID_TOOLON, m_data == INVALID_HANDLE_VALUE);
 			CloseHandle(m_data);
 			m_data = CreateFile(m_data_name, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-			m_main->m_pins.LoadFromFile(m_data);
+			m_main->m_pins.LoadFromFile(m_data, m_lastsample);
 		}
 		if (m_data == INVALID_HANDLE_VALUE)
 		{
@@ -305,7 +306,14 @@ public:
 		// read the first and the last timestamp in the file.
 		// to prevent interfering with the recording, duplicate the handle
 		size_t size = 0;
-		GetFileSizeEx(m_data, (LARGE_INTEGER*)&size);
+		if (m_lastsample)
+		{
+			size = m_lastsample;
+		}
+		else
+		{
+			GetFileSizeEx(m_data, (LARGE_INTEGER*)&size);
+		}
 		size_t count = size / sizeof(fileSample);
 		if (count < 1) return;
 		HANDLE h = INVALID_HANDLE_VALUE;
@@ -325,8 +333,8 @@ public:
 				if (!ReadFile(h, &last, sizeof(last), &read, NULL) || (read != sizeof(first))) break;
 			}
 			size_t period = (last.timestamp - first.timestamp);
-			size_t periodIndex = FindPeriod(period);
-			STimeRes* t = timeRes + periodIndex;
+			m_periodIndex = FindPeriod(period);
+			STimeRes* t = timeRes + m_periodIndex;
 			m_tool->SetToolLabel(ID_TOOLPERIOD, t->label);
 			m_graph->SetRange(first.timestamp, first.timestamp + t->period);
 			m_tool->ToggleTool(ID_TOOLARM, !m_graph->m_frozen);
@@ -414,7 +422,7 @@ public:
 	{ 
 		event.Skip(); 
 		wxFileDialog dlg(this, wxT("Open NiVerDig Digital Timer Events Recording"), wxEmptyString, wxEmptyString,
-			"NiVerDig Digital Events Recording Files (*.nkder)|*.nkder", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+			"NiVerDig Digital Events Recording Files (*.nkbef)|*.nkbef", wxFD_OPEN | wxFD_FILE_MUST_EXIST);
 		if (dlg.ShowModal() == wxID_CANCEL)
 		{
 			return;
@@ -427,7 +435,7 @@ public:
 		else
 		{
 			OpenDataFile(dlg.GetPath());
-			m_graph->Init(m_main, m_data);
+			m_graph->Init(m_main, m_data, m_lastsample);
 			ZoomAll();
 		}
 	}
@@ -480,9 +488,10 @@ public:
 				std::vector<SItem> & pins = m_main->m_pins.items;
 				for (size_t i = 0; i < pins.size(); ++i)
 				{
-					if (pins[i].values.size() > 1)
+					SItem& pin = pins[i];
+					if (pin.values.size() > 1) // values[1] is the name
 					{
-						wxString line = wxString::Format(wxT("pin\t%lld\t%s\n"), i, pins[i].values[1]);
+						wxString line = wxString::Format(wxT("pin\t%lld\t%s\t%lld\n"), i, pin.values[1], pin.type);
 						WriteFile(h, (const wchar_t*)line, line.length() * sizeof(wchar_t), NULL, NULL);
 					}
 				}
@@ -585,6 +594,7 @@ public:
 	eFormat      m_format;
 	enum eMode   {MODE_RECORD, MODE_VIEW};
 	eMode        m_mode;
+	size_t       m_lastsample; // used in viewer mode: offset of last sample
 
 	wxDECLARE_EVENT_TABLE();
 	void OnDropDownToolbarPeriod(wxAuiToolBarEvent& evt);
@@ -894,7 +904,6 @@ void* threadScope::Entry()
 
 	return NULL;
 }
-
 
 wxString FormatPeriod(size_t period)
 {

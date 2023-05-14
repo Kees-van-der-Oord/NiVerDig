@@ -121,7 +121,7 @@ bool NkDigTimerGraph::Create(wxWindow* parent,
 	return result;
 }
 
-void NkDigTimerGraph::Init(frameMain* main, HANDLE file) 
+void NkDigTimerGraph::Init(frameMain* main, HANDLE file, size_t lastsample) 
 { 
 	m_main = main;
 	m_lines.resize(m_main->m_pins.items.size());
@@ -129,7 +129,7 @@ void NkDigTimerGraph::Init(frameMain* main, HANDLE file)
 	{
 		m_lines[i].type = m_main->m_pins.items[i].type;
 	}
-	m_reader.SetFile(file);
+	m_reader.SetFile(file, lastsample);
 }
 
 void NkDigTimerGraph::Reset()
@@ -696,10 +696,9 @@ void NkDigTimerGraph::OnPaint(wxPaintEvent& WXUNUSED(evt))
 			m_first = s->timestamp;
 			m_last = m_first + m_period;
 		}
-		size_t line_index = s->channel;
-		if (line_index < m_lines.size())
+		if (s->channel < m_lines.size())
 		{
-			auto& line = m_lines[line_index];
+			auto& line = m_lines[s->channel];
 			size_t t = s->timestamp;
 			if ((line.value != NOT_INITIALIZED) && (t >= m_first) && (line.last < m_last))
 			{
