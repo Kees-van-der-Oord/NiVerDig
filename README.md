@@ -22,7 +22,7 @@ The first icon on the task row is a red STOP button. Click on this button to hal
 Tasks can be ‘idle’ (sitting icon), ‘armed’ (‘on your mark’ icon)  or ‘running’ (running icon). The colored icon reflects the current state of each task. Click on the idle, arm or run icon to change the state of the task. An ‘idle’ task will not be started by a start trigger. After ‘Arm’ing the task, a start trigger will ‘start’ it. On completion of the task, it will become ‘idle’. The options ‘arm-on-startup’ and ‘arm-on-finish’ can be set to arm the task automatically on boot or task completion.
 
 ## Pins
-The Pins panel shows the definition of the NiVerDig logical pins. For each pin a ‘name’ is defined and the actual hardware pin they refer to. Pins can be in the input or output mode. The ‘Pullup’ mode is an input mode in which the pin voltage is pulled up to 5V. Short cutting the pin to ground e.g. with a button will pull it down. For the ‘output’ mode, you must specify the initial state of the output pin.
+The Pins panel shows the definition of the NiVerDig logical pins. For each pin a ‘name’ is defined and the actual hardware pin they refer to. Pins can be in the input, pullup, output or adc mode. The ‘Pullup’ mode is an input mode in which the pin voltage is pulled up to 5V. Short cutting the pin to ground e.g. with a button will pull it down. For the ‘output’ mode, you must specify the initial state of the output pin. When the 'adc' mode is selected, the hardware pin number refers to an analog pin, e.g. A0 when '0' is selected.
 Before setting the pin mode to ‘output’ you must check if the pin is not connected to another output, button or shortcutted to ground because the shortcut current can destroy the Arduino output port.
 The + and – buttons can be used to increase or decrease the number of logical pins. After changing the pin configuration, press ‘Send’ to apply the changes to the device. Pressing the ‘Save’ and ‘Load’ buttons save and load the pin configuration to text file. Tasks referring to the pins are not updated automatically for the changes in the pin definition. After any change, validate the definition of the tasks.
 
@@ -51,6 +51,7 @@ The fields accept the following values:
 |         | high:	a digital pulse on the destination pin starting high |
 |         | low:	a digital pulse on the destination pin starting low |
 |         | toggle:	toggle the destination pin state |
+|         | adc:	read the adc |
 |         | arm:	arm the destination task |
 |         | start:	start the destination task |
 |         | restart:	restart the destination task |
@@ -66,7 +67,9 @@ The fields accept the following values:
 |          | arm-on-finish:	arm the task automatically when the task ends |
 |          | interrupts:	start and tick the task using hardware interrupts |
 
-Note: if a task that is started automatically is written to EEPROM that exceeds the Arduino speed capabilities, the NiVerDig will be unresponsive after boot. In that case hold the button for 1 seconds on boot to halt all tasks and update them. If that does not help, keep the button pressed for 5 seconds to reset all pin and task definitions to factory default.
+Notes:
+If a task that is started automatically is written to EEPROM that exceeds the Arduino speed capabilities, the NiVerDig will be unresponsive after boot. In that case hold the button for 1 seconds on boot to halt all tasks and update them. If that does not help, keep the button pressed for 5 seconds to reset all pin and task definitions to factory default.
+Reading an ADC pin takes 40 us. Sending the result through the serial port takes about the same time. Set the 'up' and 'down' time for an adc task 1ms or higher to prevent freezing the Arduino.
 
 ### interrupts
 The AVR chip is a single thread device. The main thread runs in a loop and checks the pins and tasks if action is required. The time for one loop is about 300 us. For this thread, the jitter (fault in timing) is about 300 to 600 us. Independently of the main thread, the chip features a thread that runs upon a hardware interrupt. Tasks can be configured to run on the interrupt thread using the ‘interrupts’ option. When the start trigger pin supports interrupts, the task is started with a lower delay and jitter: about 35 us delay and 4 us jitter. For interrupts tasks, the ticking of the task is paced by the chip timer with a high timing accuracy (4 us jitter). Note that there is only one interrupt thread: when two interrupt tasks have scheduled action at the same time, the actions will be executed in sequence, so one of them will be too late.
@@ -170,14 +173,19 @@ time	pin	state
 ## Example 7: Record illumination using photo-diode
 Build 36 adds support for reading an ADC pin. This example shows how to record the light intensity on a diode, e.g. to validate a microscope light source. Check the 'Build your own NiVerDig' section on how to connect the diode.
 Add a pin and select the 'adc' type. The hardware pin numbers now indicate the analog lines, select '0' for A0.
+
 ![niverdig_A0](https://github.com/Kees-van-der-Oord/NiVerDig/assets/62476661/b8b7361f-1e96-4db7-87bb-815d023eaa04)
+
 Add a task to read the analog pin, e.g. very 1 ms.
+
 ![Niverdig_read_diode](https://github.com/Kees-van-der-Oord/NiVerDig/assets/62476661/4302f7d7-0c1f-4b80-8299-6b11fe0c3f56)
+
 This picture show the recording when the red LED was pulsed and the light captured by the diode:
+
 ![niverdig_analog_pulse](https://github.com/Kees-van-der-Oord/NiVerDig/assets/62476661/6812d2df-55bd-4353-897f-6767b6aa3ab9)
 
 
-## Command-Line interface
+## Arduino Serial Commands
 The Arduino is accessed through a COM port. The ‘Console’ panel shows the text sent to and received from the device. Control of the device is also possible from other programs.
 Connection details: baud-rate 500000 bps, 8-bits, 1 stop bit, parity: none, flow-control: none, end-of-line character: newline
 | command | details |
@@ -232,6 +240,15 @@ Connection details: baud-rate 500000 bps, 8-bits, 1 stop bit, parity: none, flow
 |              | 	\<options\>	: (arm-on-finish arm-on-startup interrupts) |
 |              | Note: if the second argument is one of the property names, the second syntax is assumed. Don’t define a task name that is equal to a property name. |
 
+	
+## NiVerDig command-line arguments
+The NiVerDig program accepts the following arguments:
+| argument | description |
+| ------- | ------- |
+| -record <file-to-record> | starts recording to the specified file |
+| -show [minimized|maximized|normal] | the state of the main window on startup |
+
+	
 ## Sketch Upload
 The precompiled Arduino NiVerDig Sketch can be uploaded to a Uno or Mega board using AVRdude. From the Ports dropdown menu select ‘Upload NiVerDig Sketch to Uno/Mega’. Select the appropriate COM port, the board model and the matching sketch. Press Start to start the upload.
 
@@ -241,6 +258,7 @@ On completion, the software will connect to the board:
 
 ![image](https://user-images.githubusercontent.com/62476661/217348060-23a32fc0-0d07-4b9a-be02-b7901bf8226c.png)
 
+	
 ## NIS Macro
 
 ### NiVerDig.mac
