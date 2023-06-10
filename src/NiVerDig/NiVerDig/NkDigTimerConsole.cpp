@@ -98,7 +98,7 @@ public:
 		m_main->ReadAll();
 	}
 
-	bool CanClosePanel()
+	bool CanClosePanel(wxFrame * mainFrame)
 	{
 		m_main->WriteLine(wxT("verbose 0\n"));
 		return true;

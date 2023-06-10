@@ -71,6 +71,8 @@
 #define countof(A) (sizeof(A)/sizeof((A)[0]))
 #endif
 
+wxString wxGetFileVersion(wxString filename);
+
 inline size_t GetFilePointerEx(HANDLE hFile) {
     LARGE_INTEGER liOfs = { 0 };
     LARGE_INTEGER liNew = { 0 };
@@ -87,6 +89,14 @@ inline size_t GetFilePointerEx(HANDLE hFile) {
 typedef unsigned char byte;
 typedef unsigned short word;
 
+inline size_t wxGetFileLength(HANDLE file)
+{
+    LARGE_INTEGER li = { 0,0 };
+	GetFileSizeEx(file,&li);
+    return li.QuadPart;
+}
+
+enum EMODE { MODE_CONTROL, MODE_VIEW, MODE_RECORD};
 #include "NkDigTimerGraph.h"
 #include "NkDigTimer.h"
 #include "NkDigTimerUpload.h"

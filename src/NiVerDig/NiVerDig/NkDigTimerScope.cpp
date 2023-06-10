@@ -121,22 +121,25 @@ wxString LogFormatLocalFileTimeUs(size_t t)
 class panelScope : public formScope, public nkDigTimPanel
 {
 public:
-	panelScope(frameMain* main, wxString file)
+	panelScope(frameMain* main, wxString file, EMODE mode)
 	: formScope(main->m_mainPanel)
 	, m_main(main)
 	, m_thread(NULL)
 	, m_periodIndex(9) // 1 second
 	, m_save(false)
 	, m_format(FORMAT_BINARY)
-	, m_mode(file.length() ? MODE_VIEW : MODE_RECORD)
+	, m_mode(mode) 
 	, m_lastsample(0)
+	, m_data(INVALID_HANDLE_VALUE)
+	, m_isTempData(true)
 	{
+		m_data_name[0] = 0;
 		if (m_mode == MODE_VIEW)
 		{
 			m_tool->EnableTool(ID_TOOLON, false);
 		}
+		if (m_mode == MODE_RECORD) m_save = true;
 		OpenDataFile(file);
-		m_graph->Init(m_main,m_data,m_lastsample);
 
 		if (m_main->m_pins.items.size() && (m_main->m_pins.items[0].values.size() > 1))
 		{
@@ -169,9 +172,18 @@ public:
 
 		m_tool->Realize();
 
-		if (m_mode == MODE_VIEW)
+		switch (m_mode)
 		{
+		case MODE_VIEW:
 			ZoomAll();
+			break;
+		case MODE_RECORD:
+			m_tool->ToggleTool(ID_TOOLSAVE, true);
+			StartRecording(true);
+			break;
+		default:
+			m_mode = MODE_RECORD;
+			break;
 		}
 	}
 
@@ -182,11 +194,34 @@ public:
 
 	void OpenDataFile(wxString file)
 	{
-		if (m_mode == MODE_RECORD)
+		if (m_data != INVALID_HANDLE_VALUE)
 		{
-			GetTempPath(_MAX_FNAME, m_data_name);
-			GetTempFileName(m_data_name, L"nkbef", 0, m_data_name);
+			CloseDataFile();
+		}
+		if (m_mode != MODE_VIEW)
+		{
+			if(!m_save || !file.length())
+			{ 
+				GetTempPath(_MAX_FNAME, m_data_name);
+				GetTempFileName(m_data_name, L"nkbef", 0, m_data_name);
+				m_isTempData = true;
+			}
+			else
+			{
+				m_isTempData = false;
+				if (file.Right(6).Lower().CompareTo(L".nkbef")) file += L".nkbef";
+				while(wxFileExists(file) && wxFileName(file).GetSize().GetValue())
+				{
+					IncrementFileName(file);
+				}
+				wcscpy_s(m_data_name, countof(m_data_name), file);
+			}
 			m_data = CreateFile(m_data_name, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, NULL);
+			m_lastsample = 0;
+			if (!m_isTempData)
+			{
+				m_filename = m_data_name;
+			}
 		}
 		else
 		{
@@ -202,20 +237,23 @@ public:
 		{
 			wxMessageBox(wxString::Format(wxT("Error %s opening file %s"), wxSysErrorMsg(), m_data_name),wxMessageBoxCaptionStr, wxICON_ERROR | wxOK);
 		}
+		m_graph->Init(m_main,m_data,m_lastsample);
 	}
 
 	void CloseDataFile()
 	{
 		CloseHandle(m_data);
-		if (m_mode == MODE_RECORD)
+		m_data = INVALID_HANDLE_VALUE;
+		if ((m_mode == MODE_RECORD) && m_isTempData)
 		{
 			DeleteFile(m_data_name);
 		}
 	}
 
-	bool CanClosePanel()
+	bool CanClosePanel(wxFrame * mainFrame)
 	{
-		if (m_thread)
+		// if the window is miminized, assume closure is initiated by windows shut down or deliberite termination of the application.
+		if (m_thread && !mainFrame->IsIconized())
 		{
 			int answer = wxMessageBox(wxT("Data capture is active: do you want to stop this ?"), wxMessageBoxCaptionStr, wxOK | wxCANCEL);
 			if (answer == wxCANCEL)
@@ -223,27 +261,60 @@ public:
 				return false;
 			}
 		}
-		StartThread(false);
+		StartRecording(false);
 		return true;
 	}
 
 	void SetPeriod(long index, bool keep_center);
 
 	virtual void m_toolOnOnToolClicked(wxCommandEvent& event)
-	{ 
+	{
 		event.Skip();
-		bool checked = event.IsChecked();
-		if (checked)
+		StartRecording(event.IsChecked());
+	}
+
+	void StartRecording(bool record)
+	{
+		if (record)
 		{
 			m_graph->Reset();
 			size_t pos = 0;
+			OpenDataFile(m_save && (m_format == FORMAT_BINARY) ? m_filename  : wxString(""));
 			SetFilePointerEx(m_data, *(LARGE_INTEGER*)&pos, NULL, FILE_BEGIN);
 			SetEndOfFile(m_data);
 		}
-		StartThread(checked);
-		m_graph->Start(checked);
-		m_tool->ToggleTool(ID_TOOLON, checked);
+		StartThread(record);
+		m_graph->Start(record);
+		m_tool->ToggleTool(ID_TOOLON, record);
 		m_tool->Refresh();
+		if (record)
+		{
+			if (!m_isTempData)
+			{
+				SetStatus(wxString("recording ") + m_filename);
+			}
+			else
+			{
+				SetStatus(wxT("recording"));
+			}
+		}
+		else
+		{
+			SetStatus(wxString(""));
+			if (m_save && m_filename.length())
+			{
+				if (wcscmp(m_data_name, m_filename))
+				{
+					SaveFile();
+				}
+				else
+				{
+					SaveFileInfo(m_data, &m_lastsample);
+					m_graph->SetLastSample(m_lastsample);
+				}
+			}
+			m_main->SetStatus(wxT("scope mode stopped"));
+		}
 	}
 
 	virtual void m_toolTriggerOnToolClicked(wxCommandEvent& event) 
@@ -373,6 +444,12 @@ public:
 		}
 
 		wxFileName fn(m_filename);
+		while(fn.Exists() && fn.GetSize().GetValue())
+		{
+			IncrementFileName(m_filename);
+			fn = wxFileName(m_filename);
+		}
+
 		wxFileDialog dlg(this, wxT("Save NiVerDig Digital Timer Events Recording"), fn.GetPath(), fn.GetFullName(),
 			"Binary Event Format (*.nkbef)|*.nkbef|Text Event Format (*.nktef)|*.nktef|Relative Timing Text Event Format (*.nkref)|*.nkref", wxFD_SAVE /*| wxFD_OVERWRITE_PROMPT*/);
 		dlg.SetFilterIndex(m_format);
@@ -386,7 +463,8 @@ public:
 			}
 			// wxFileDialog adds the extension AFTER the checking if the file exists ...
 			wxString name = dlg.GetPath();
-			if (wxFileExists(name))
+			fn = wxFileName(name);
+			if(fn.Exists() && fn.GetSize().GetValue())
 			{
 				int answer = wxMessageBox(wxString::Format(wxT("%s exists: overwrite ?"), name), wxMessageBoxCaptionStr, wxYES | wxNO | wxCANCEL);
 				if (answer == wxCANCEL)
@@ -410,7 +488,10 @@ public:
 
 		if (!m_thread)
 		{
-			SaveFile();
+			if (wxGetFileLength(m_data))
+			{
+				SaveFile();
+			}
 		}
 		else
 		{
@@ -435,7 +516,6 @@ public:
 		else
 		{
 			OpenDataFile(dlg.GetPath());
-			m_graph->Init(m_main, m_data, m_lastsample);
 			ZoomAll();
 		}
 	}
@@ -455,10 +535,7 @@ public:
 			m_thread->Wait();
 			delete m_thread;
 			m_thread = NULL;
-			if (m_save && m_filename.length())
-			{
-				SaveFile();
-			}
+
 			return;
 		}
 		else
@@ -483,20 +560,7 @@ public:
 			HANDLE h = CreateFile(m_filename, GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
 			if (h != INVALID_HANDLE_VALUE)
 			{
-				SetFilePointer(h, 0, NULL, FILE_END);
-				size_t len = GetFilePointerEx(h);
-				std::vector<SItem> & pins = m_main->m_pins.items;
-				for (size_t i = 0; i < pins.size(); ++i)
-				{
-					SItem& pin = pins[i];
-					if (pin.values.size() > 1) // values[1] is the name
-					{
-						wxString line = wxString::Format(wxT("pin\t%lld\t%s\t%lld\n"), i, pin.values[1], pin.type);
-						WriteFile(h, (const wchar_t*)line, line.length() * sizeof(wchar_t), NULL, NULL);
-					}
-				}
-				// last number is the start of the pins section
-				WriteFile(h, &len, sizeof(size_t), NULL, NULL);
+				SaveFileInfo(h,NULL);
 				CloseHandle(h);
 			}
 		}
@@ -553,12 +617,31 @@ public:
 			}
 		}
 		m_main->SetStatus(wxString::Format(wxT("file %s saved."),m_filename));
-		IncrementFileName();
+		IncrementFileName(m_filename);
 	}
 
-	void IncrementFileName()
+	void SaveFileInfo(HANDLE h, size_t * last_sample)
 	{
-		wxFileName fn(m_filename);
+		SetFilePointer(h, 0, NULL, FILE_END);
+		size_t len = GetFilePointerEx(h);
+		if (last_sample) *last_sample = len;
+		std::vector<SItem>& pins = m_main->m_pins.items;
+		for (size_t i = 0; i < pins.size(); ++i)
+		{
+			SItem& pin = pins[i];
+			if (pin.values.size() > 1) // values[1] is the name
+			{
+				wxString line = wxString::Format(wxT("pin\t%lld\t%s\t%lld\n"), i, pin.values[1], pin.type);
+				WriteFile(h, (const wchar_t*)line, line.length() * sizeof(wchar_t), NULL, NULL);
+			}
+		}
+		// last number is the start of the pins section
+		WriteFile(h, &len, sizeof(size_t), NULL, NULL);
+	}
+	
+	void IncrementFileName(wxString &filename)
+	{
+		wxFileName fn(filename);
 		wxString name = fn.GetName();
 		wxRegEx re(wxT("(.*?)(\\d+)$"));
 		long index = 0;
@@ -573,7 +656,7 @@ public:
 			name = name + wxT("1");
 		}
 		fn.SetName(name);
-		m_filename = fn.GetFullPath();
+		filename = fn.GetFullPath();
 	}
 
 	void OnGraphDisarm(NkDigTimerGraphEvent& graph)
@@ -582,9 +665,15 @@ public:
 		m_tool->Refresh();
 	}
 
+	void SetStatus(wxString status)
+	{
+		m_scopeStatus->SetLabel(status);
+	}
+
 	frameMain*   m_main;
 	HANDLE       m_data;
 	wchar_t      m_data_name[_MAX_FNAME];
+	bool         m_isTempData;
 	threadScope* m_thread;
 	long         m_periodIndex;
 	wxString     m_profilePrefix;
@@ -592,8 +681,7 @@ public:
 	wxString     m_filename;
 	enum eFormat {FORMAT_BINARY, FORMAT_TEXT_ABS, FORMAT_TEXT_REL};
 	eFormat      m_format;
-	enum eMode   {MODE_RECORD, MODE_VIEW};
-	eMode        m_mode;
+	enum EMODE   m_mode;
 	size_t       m_lastsample; // used in viewer mode: offset of last sample
 
 	wxDECLARE_EVENT_TABLE();
@@ -968,7 +1056,7 @@ void panelScope::OnPeriod(wxCommandEvent& event)
 {
 	long index = event.GetId() - 10000;
 	if ((index < 0) || (index >= countof(timeRes))) return;
-	SetPeriod(index, false);
+	SetPeriod(index, m_mode == MODE_VIEW);
 }
 
 void panelScope::SetPeriod(long index, bool keep_center)
@@ -1111,8 +1199,8 @@ void panelScope::OnMode(wxCommandEvent& event)
 	m_tool->Refresh();
 }
 
-wxPanel* CreateScopePanel(frameMain* parent, wxString file)
+wxPanel* CreateScopePanel(frameMain* parent, wxString file, EMODE mode)
 {
-	return new panelScope(parent, file);
+	return new panelScope(parent, file, mode);
 }
 

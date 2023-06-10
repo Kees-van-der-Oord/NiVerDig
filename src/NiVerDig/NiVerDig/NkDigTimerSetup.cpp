@@ -462,7 +462,7 @@ public:
 		UpdateChanged();
 	}
 
-	bool CanClosePanel()
+	bool CanClosePanel(wxFrame * mainFrame)
 	{
 		UpdateChanged();
 		if (m_changed)

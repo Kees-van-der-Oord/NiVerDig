@@ -72,6 +72,11 @@ struct scopePages
 		m_lastsample = lastsample;
 	}
 
+	void SetLastSample(size_t lastsample)
+	{
+		m_lastsample = lastsample;
+	}
+
 	void Unmap()
 	{
 		if (m_mem)
@@ -182,6 +187,7 @@ public:
 	}
 
 	void SetFile(HANDLE file, size_t lastsample) { m_file = file; m_pages.SetFile(file, lastsample); m_sample = NULL; }
+	void SetLastSample(size_t lastsample) { m_pages.SetLastSample(lastsample); }
 	fileSample* First(size_t first);
 	void Reset();
 	fileSample* Next();

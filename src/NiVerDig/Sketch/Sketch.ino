@@ -60,7 +60,7 @@ NiVerDig/Sketch:
   version 8/32: 13-01-2023: changed terminator to CR+NL to satisfy both NIS \r and Arduino serial monitor \n
   version 10/33: 13-01-2023: fixed name first BNC, set default task count to 0
   version 12/34: 20-01-2023: no change: timestamp of fast pulses is overwritten: should be detected on PC side ...
-  version 13/35: 05-05-2023: fixed crash in COM port list - added ADC support
+  version 13/36: 05-05-2023: fixed crash in COM port list - added ADC support
 */
 
 #include <limits.h>
@@ -103,7 +103,7 @@ SerialEEPROM eeprom;
 // if you change the PINCOUNT, struct pin, TASKCOUNT, struct task: add isrs and increment MODEL (because the EEPROM layout changes)
 #define MODEL       3
 #define REVISION    2
-#define VERSION     34
+#define VERSION     36
 #define BAUD_RATE   500000 // for the uno and mega
 #define EOL "\r\n"
 #define BUTTON_PIN  8      // press the button during boot to set halt (1 second) or reset (5 seconds)
@@ -127,7 +127,7 @@ bool checkpin(byte pin) { return pin < 14; }
 #undef RED_LED_PIN   // uno model does not have LED mounted
 #define ISRCOUNT 2
 byte isr_pins[ISRCOUNT] = {2, 3};
-byte checkAdcPin(byte pin) { if(dig_pin > 6) return MAX_BYTE, return pin; }
+byte checkAdcPin(byte pin) { if(pin > 6) return MAX_BYTE; return pin; }
 
 // Nano
 #elif defined(ARDUINO_AVR_NANO)
