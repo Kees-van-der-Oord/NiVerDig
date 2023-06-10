@@ -245,7 +245,7 @@ Connection details: baud-rate 500000 bps, 8-bits, 1 stop bit, parity: none, flow
 The NiVerDig program accepts the following arguments:
 | argument | description |
 | ------- | ------- |
-| -record <file-to-record> | starts recording to the specified file |
+| -record \<file-to-record\> | starts recording to the specified file |
 | -show [minimized\|maximized\|normal] | the state of the main window on startup |
 
 	
@@ -439,6 +439,18 @@ assembly of the cable:
 
 ![image](https://user-images.githubusercontent.com/62476661/217348598-9f8d7557-e459-4e33-ab42-b81c989d089b.png)
  
+### Diode sensor
+Many simple photodiodes can be connected to an analog pin. Check out the polarity with a volt meter and validate that the voltage is in the 0 V to 5 V range.
+I used the Vishay Photo Diode BPW46 https://www.conrad.nl/nl/p/vishay-fotodiode-bpw46-597107.html
+	
+![diode3](https://github.com/Kees-van-der-Oord/NiVerDig/assets/62476661/fb55e824-1bd8-4cf0-9c65-bacde51d48ed)
+	
+To adjust the sensitivity, a MPC601 amplifier can be used. The circuit details how to connect a diode are in the MCP data sheet. By trail and error I found that using a 470 fixed resistor and a 100 MegaOhm variable resistor allows changing the gain from 1x to 200000x:
+| Data Sheet circuit | Circuit Plan | Top Side View | Bottom Side View |
+|--|--|--|--|
+|![MCP601_scheme](https://github.com/Kees-van-der-Oord/NiVerDig/assets/62476661/df86482f-5146-4265-ab58-0982af5af386)|![MCP601_scheme2](https://github.com/Kees-van-der-Oord/NiVerDig/assets/62476661/272fe956-3b52-497b-8a7e-701df547194a)|![TopView](https://github.com/Kees-van-der-Oord/NiVerDig/assets/62476661/7590ab00-d3de-47f0-a8c0-ce79cc8b1716)|![BottomView](https://github.com/Kees-van-der-Oord/NiVerDig/assets/62476661/e6c802da-300b-4848-ad6b-bbc419cdc3fc)|
+
+	
 ## Build Instructions
 The NiVerDig package installs the win32 GUI program and comes with precompiled sketches for the Uno R3 and Mega boards. In most cases, there is no need to compile the Arduino sketch or win32 program. The instructions below are for when  you are missing features and would like to add them.
 	
