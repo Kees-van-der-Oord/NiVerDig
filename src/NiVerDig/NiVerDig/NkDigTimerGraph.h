@@ -64,6 +64,7 @@ public:
 		const wxString& name = wxASCII_STR(wxPanelNameStr));
 
 	void Init(frameMain* main, HANDLE file, size_t lastsample);
+	void SetLastSample(size_t lastsample);
 	void Reset();
 	void Start(bool on);
 	void SetPeriod(size_t period, bool keep_center);

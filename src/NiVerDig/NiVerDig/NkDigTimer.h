@@ -212,6 +212,7 @@ public:
     wxLogFile       m_log;
     wxIndexTextFile m_ilog;
 
+    void SetTitle(wxString port, wxString answer);
     bool IsConnected();
     void ParseItems(wxString command, SItems& items);
     void ParsePins();
@@ -229,6 +230,12 @@ public:
     bool LoadItems(SItems& items);
     void SetStatus(wxString str);
     void SetPort(wxString port);
+    void ClosePort(void);
+
+    void MSWSetShowCommand(WXUINT showCmd)
+    {
+        m_showCmd = showCmd;
+    }
 
 private:
     std::map<wxString,wxString> m_ports;
@@ -249,7 +256,7 @@ private:
     void StoreSettings();
     void RestoreSettings();
 
-    void ShowPanel(int panel, bool refresh);
+    bool ShowPanel(int panel, bool refresh);
 };
 
 size_t GetCurrentTimeInMs();
@@ -260,10 +267,10 @@ wxString LogFormatLocalFileTimeUs(size_t t);
 wxPanel* CreateControlPanel(frameMain * parent);
 wxPanel* CreateSetupPanel(frameMain* parent, SItems& items);
 wxPanel* CreateConsolePanel(frameMain* parent);
-wxPanel* CreateScopePanel(frameMain* parent, wxString file);
+wxPanel* CreateScopePanel(frameMain* parent, wxString file, EMODE mode);
 
 class nkDigTimPanel
 {
 public:
-    virtual bool CanClosePanel() = 0;
+    virtual bool CanClosePanel(wxFrame * frame) = 0;
 };

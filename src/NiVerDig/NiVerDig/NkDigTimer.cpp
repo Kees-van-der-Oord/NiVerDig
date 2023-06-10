@@ -5,24 +5,48 @@
 
 static const wxCmdLineEntryDesc g_cmdLineDesc[] =
 {
-//  { wxCMD_LINE_SWITCH, wxT("h"), wxT("help"), wxT("displays help on the command line parameters"),wxCMD_LINE_VAL_NONE, wxCMD_LINE_OPTION_HELP },
-//  { wxCMD_LINE_SWITCH, wxT("t"), wxT("test"), wxT("test switch"),wxCMD_LINE_VAL_NONE, wxCMD_LINE_OPTION_MANDATORY  },
-//  { wxCMD_LINE_SWITCH, wxT("s"), wxT("silent"), wxT("disables the GUI") },
-    { wxCMD_LINE_PARAM, NULL, NULL, "recording", wxCMD_LINE_VAL_STRING, wxCMD_LINE_PARAM},
-    { wxCMD_LINE_NONE }
+	{ wxCMD_LINE_OPTION, "r", "record", "<filename>",      wxCMD_LINE_VAL_STRING, wxCMD_LINE_PARAM_OPTIONAL},
+	{ wxCMD_LINE_OPTION, "s", "show",   "minimized|maximized|normal", wxCMD_LINE_VAL_STRING, wxCMD_LINE_PARAM_OPTIONAL},
+	{ wxCMD_LINE_PARAM, NULL, NULL,    "recorded file to view", wxCMD_LINE_VAL_STRING, wxCMD_LINE_PARAM_OPTIONAL},
+	{ wxCMD_LINE_NONE }
 };
 
 class appMain : public wxApp
 {
 public:
+
+    appMain()
+	: wxApp()
+	, m_mode(MODE_CONTROL)
+	, m_showCmd(-1)
+    {}
+
     void OnInitCmdLine(wxCmdLineParser& parser)
     {
         parser.SetDesc(g_cmdLineDesc);
         // must refuse '/' as parameter starter or cannot use "/path" style paths
         parser.SetSwitchChars(wxT("-"));
     }
+
     bool OnCmdLineParsed(wxCmdLineParser& parser)
     {
+        if (parser.Found(wxT("record"), &m_file))
+        {
+            m_mode = MODE_RECORD;
+        }
+        wxString showCommand;
+        if (parser.Found(wxT("show"), &showCommand))
+        {
+            if (!showCommand.Left(2).CompareTo(wxT("mi"), wxString::ignoreCase))
+            {
+                m_showCmd = SW_MINIMIZE;
+            }
+            else if (!showCommand.Left(2).CompareTo(wxT("ma"), wxString::ignoreCase))
+            {
+                m_showCmd = SW_MAXIMIZE;
+            }
+
+        }
         if(parser.GetParamCount() >= 1)
         {
             m_file = parser.GetParam(0);
@@ -30,10 +54,12 @@ public:
         }
         return true;
     }
+
     bool OnInit() wxOVERRIDE;
-    enum EMODE { MODE_CONTROL, MODE_VIEW};
-    EMODE m_mode;
+
+	EMODE    m_mode;
     wxString m_file;
+    long     m_showCmd;
 };
 
 wxDECLARE_APP(appMain);
@@ -72,6 +98,7 @@ frameMain::frameMain(wxWindow* parent,
     , m_log()
     , m_ilog(m_log.m_name)
 {
+    wxGetApp().SetTopWindow(this);
     SetIcon(wxIcon(wxT("IDI_AAAAPPLICATION"), wxBITMAP_TYPE_ICO_RESOURCE, 64, 64));
 
     // persistence
@@ -79,9 +106,13 @@ frameMain::frameMain(wxWindow* parent,
     RestoreSettings();
 
     // command line arguments
-    if (wxGetApp().m_mode == appMain::MODE_VIEW)
+    if (wxGetApp().m_mode == MODE_VIEW)
     {
         m_toolBar->Hide();
+        ShowPanel(ESCOPEPANEL, true);
+    }
+    if (wxGetApp().m_mode == MODE_RECORD)
+    {
         ShowPanel(ESCOPEPANEL, true);
     }
 }
@@ -96,7 +127,9 @@ void frameMain::StoreSettings()
 {
     bool maximized = IsMaximized();
     m_profile->Write(wxT("Window/Maximized"), maximized);
-    if (!maximized)
+    bool minimized = IsIconized();
+    m_profile->Write(wxT("Window/Minimized"), minimized);
+    if (!maximized && !minimized)
     {
         wxRect rcWnd = this->GetRect();
         m_profile->Write(wxT("Window/Top"), rcWnd.y);
@@ -145,14 +178,23 @@ void frameMain::RestoreSettings()
         this->SetSize(rcWnd.GetSize());
     }
     bool maximized = m_profile->Read(wxT("Window/Maximized"), 0L);
+    long minimized = m_profile->Read(wxT("Window/Minimized"), 0L);
     if (maximized)
     {
         Maximize();
     }
+    else if (minimized)
+    {
+        Iconize(true);
+    }
 
-    if (wxGetApp().m_mode == appMain::MODE_CONTROL)
+    if (wxGetApp().m_mode != MODE_VIEW)
     {
         SetPort(m_profile->Read(wxT("Port/Name")));
+    }
+    else
+    {
+        SetTitle(wxT("Viewer"), wxEmptyString);
     }
 }
 
@@ -201,8 +243,15 @@ wxString GetPortInfo(std::map<wxString, wxString>& ports, wxString port)
 
 void frameMain::formMainOnClose(wxCloseEvent& event)
 {
+    if (event.CanVeto())
+    {
+        if (!ShowPanel(-1, false))
+        {
+            event.Veto();
+            return;
+        }
+    }
     event.Skip();
-    ShowPanel(-1,false);
 }
 
 void frameMain::SetStatus(wxString str)
@@ -251,7 +300,7 @@ void frameMain::m_toolPortOnAuiToolBarToolDropDown(wxAuiToolBarEvent& evt)
 void frameMain::OnMenuCommandPort(wxCommandEvent& event)
 {
     nkDigTimPanel* dtp = dynamic_cast<nkDigTimPanel*>(m_panel);
-    if (dtp && !dtp->CanClosePanel())
+    if (dtp && !dtp->CanClosePanel(this))
     {
         return;
     }
@@ -325,9 +374,15 @@ wxString FindKnownVidPid(wxString info)
     return info;
 }
 
-void frameMain::SetPort(wxString port)
+void frameMain::ClosePort()
 {
     NkComPort_Close(&m_port);
+    SetTitle(wxT("not connected"), wxEmptyString);
+}
+
+void frameMain::SetPort(wxString port)
+{
+    ClosePort();
     m_statusBar->SetStatusText(wxT("not connected"));
     m_portName.Clear();
     m_toolPort->SetLabel(wxT("Port ..."));
@@ -387,7 +442,7 @@ void frameMain::SetPort(wxString port)
         }
     }
 
-    SetTitle(answer);
+    SetTitle(port, answer);
     m_portName = port;
     m_toolPort->SetLabel(port);
     m_statusBar->SetStatusText(wxT("connected to ") + port);
@@ -405,6 +460,11 @@ void frameMain::SetPort(wxString port)
     swscanf_s(answer, wxT("halt=%ld"), &m_halt);
 
     ShowPanel(ECONTROLPANEL, true);
+}
+
+void frameMain::SetTitle(wxString port, wxString answer)
+{
+    formMain::SetTitle(wxT("NiVerDig ") + wxGetFileVersion(wxEmptyString) + wxT(" ") + port + wxT(" ") + answer);
 }
 
 bool frameMain::IsConnected()
@@ -483,19 +543,18 @@ void frameMain::m_toolHelpOnToolClicked(wxCommandEvent& event)
     ShellExecute(NULL, L"open", pdf.GetFullPath(), NULL, NULL, SW_SHOWNORMAL);
 }
 
-
-void frameMain::ShowPanel(int panel, bool refresh)
+bool frameMain::ShowPanel(int panel, bool refresh)
 {
-    if (!refresh && (m_epanel == panel)) return;
+    if (!refresh && (m_epanel == panel)) return true;
 
     if ((m_epanel != panel) && m_panel)
     {
         nkDigTimPanel* dtp = dynamic_cast<nkDigTimPanel*>(m_panel);
-        if (dtp && !dtp->CanClosePanel())
+        if (dtp && !dtp->CanClosePanel(this))
         {
             m_toolBar->ToggleTool(m_epanel, true);
             m_toolBar->Refresh();
-            return;
+            return false;
         }
     }
     m_epanel = ENOPANEL;
@@ -507,7 +566,7 @@ void frameMain::ShowPanel(int panel, bool refresh)
     case ECONTROLPANEL: m_panel = CreateControlPanel(this); break;
     case EPINSPANEL: m_panel = CreateSetupPanel(this, m_pins);  break;
     case ETASKSPANEL:m_panel = CreateSetupPanel(this, m_tasks);   break;
-    case ESCOPEPANEL:m_panel = CreateScopePanel(this, wxGetApp().m_file);   break;
+    case ESCOPEPANEL:m_panel = CreateScopePanel(this, wxGetApp().m_file, wxGetApp().m_mode); wxGetApp().m_mode = MODE_CONTROL; break;
     case ECONSOLEPANEL:m_panel = CreateConsolePanel(this);   break;
     }
     if (m_panel)
@@ -519,6 +578,7 @@ void frameMain::ShowPanel(int panel, bool refresh)
     m_toolBar->Refresh();
 
     Layout();
+    return true;
 }
 
 void frameMain::ParseItems(wxString command, SItems& items)
@@ -1000,6 +1060,10 @@ bool appMain::OnInit()
         wxDefaultPosition,
         wxWindow::FromDIP(wxSize(800, 600), NULL));
 
+    if (m_showCmd != -1)
+    {
+        frame->MSWSetShowCommand(m_showCmd);
+    }
     frame->Show();
     
     return true;

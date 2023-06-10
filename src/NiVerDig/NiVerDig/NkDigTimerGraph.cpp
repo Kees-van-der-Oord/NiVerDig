@@ -132,6 +132,11 @@ void NkDigTimerGraph::Init(frameMain* main, HANDLE file, size_t lastsample)
 	m_reader.SetFile(file, lastsample);
 }
 
+void NkDigTimerGraph::SetLastSample(size_t lastsample)
+{
+	m_reader.SetLastSample(lastsample);
+}
+
 void NkDigTimerGraph::Reset()
 {
 	m_reader.Reset();

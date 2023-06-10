@@ -43,8 +43,8 @@
 			<File Id="wxmsw321u_core_vc_x64_custom.dll" Source="..\x64\release\wxmsw321u_core_vc_x64_custom.dll"/>
 			<File Id="avrdude.exe" Source="..\x64\release\avrdude.exe"/>
 			<File Id="avrdude.conf" Source="..\x64\release\avrdude.conf"/>
-			<File Id="NiVerDig_33.mega.ino.hex" Source="..\Hex\NiVerDig_33.mega.ino.hex"/>
-			<File Id="NiVerDig_33.uno.ino.hex" Source="..\Hex\NiVerDig_33.uno.ino.hex"/>
+			<File Id="NiVerDig_36.mega.ino.hex" Source="..\Hex\NiVerDig_36.mega.ino.hex"/>
+			<File Id="NiVerDig_36.uno.ino.hex" Source="..\Hex\NiVerDig_36.uno.ino.hex"/>
 			<File Id="NiVerDig.mac" Source="..\macros\NiVerDig.mac"/>
 			<!--
 			<RemoveFolder Id="RemoveNiVerDigStartMenuFolder" Directory="NiVerDigStartMenuFolder" On="uninstall"/>
