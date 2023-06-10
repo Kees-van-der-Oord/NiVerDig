@@ -167,6 +167,16 @@ time	pin	state
 2022-12-04 21:13:54.111028	0	0
 ```
 
+## Example 7: Record illumination using photo-diode
+Build 36 adds support for reading an ADC pin. This example shows how to record the light intensity on a diode, e.g. to validate a microscope light source. Check the 'Build your own NiVerDig' section on how to connect the diode.
+Add a pin and select the 'adc' type. The hardware pin numbers now indicate the analog lines, select '0' for A0.
+![niverdig_A0](https://github.com/Kees-van-der-Oord/NiVerDig/assets/62476661/b8b7361f-1e96-4db7-87bb-815d023eaa04)
+Add a task to read the analog pin, e.g. very 1 ms.
+![Niverdig_read_diode](https://github.com/Kees-van-der-Oord/NiVerDig/assets/62476661/4302f7d7-0c1f-4b80-8299-6b11fe0c3f56)
+This picture show the recording when the red LED was pulsed and the light captured by the diode:
+![niverdig_analog_pulse](https://github.com/Kees-van-der-Oord/NiVerDig/assets/62476661/6812d2df-55bd-4353-897f-6767b6aa3ab9)
+
+
 ## Command-Line interface
 The Arduino is accessed through a COM port. The ‘Console’ panel shows the text sent to and received from the device. Control of the device is also possible from other programs.
 Connection details: baud-rate 500000 bps, 8-bits, 1 stop bit, parity: none, flow-control: none, end-of-line character: newline
