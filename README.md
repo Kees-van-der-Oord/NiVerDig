@@ -443,7 +443,9 @@ assembly of the cable:
 Many simple photodiodes can be connected to an analog pin. Check out the polarity with a volt meter and validate that the voltage is in the 0 V to 5 V range.
 I used the Vishay Photo Diode BPW46 https://www.conrad.nl/nl/p/vishay-fotodiode-bpw46-597107.html
 	
-![diode3](https://github.com/Kees-van-der-Oord/NiVerDig/assets/62476661/fb55e824-1bd8-4cf0-9c65-bacde51d48ed)
+![diode4](https://github.com/Kees-van-der-Oord/NiVerDig/assets/62476661/65a5f0d4-a231-4ef1-9a90-cae3d8cbd3d3)  ![diode2](https://github.com/Kees-van-der-Oord/NiVerDig/assets/62476661/0b3adfd8-6e6d-4e16-b1cb-c4d6bc1d043f)
+
+
 	
 To adjust the sensitivity, a MPC601 amplifier can be used. The circuit details how to connect a diode are in the MCP data sheet. By trail and error I found that using a 470 fixed resistor and a 100 MegaOhm variable resistor allows changing the gain from 1x to 200000x:
 | Data Sheet circuit | Circuit Plan | Top Side View | Bottom Side View |
