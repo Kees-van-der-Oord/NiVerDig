@@ -246,7 +246,7 @@ The NiVerDig program accepts the following arguments:
 | argument | description |
 | ------- | ------- |
 | -record <file-to-record> | starts recording to the specified file |
-| -show [minimized|maximized|normal] | the state of the main window on startup |
+| -show [minimized\|maximized\|normal] | the state of the main window on startup |
 
 	
 ## Sketch Upload
