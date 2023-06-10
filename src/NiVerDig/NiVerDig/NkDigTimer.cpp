@@ -45,7 +45,10 @@ public:
             {
                 m_showCmd = SW_MAXIMIZE;
             }
-
+            else if (!showCommand.Left(2).CompareTo(wxT("no"), wxString::ignoreCase))
+            {
+                m_showCmd = SW_NORMAL;
+            }
         }
         if(parser.GetParamCount() >= 1)
         {

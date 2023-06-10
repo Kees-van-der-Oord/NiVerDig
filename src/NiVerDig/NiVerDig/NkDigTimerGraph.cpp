@@ -160,8 +160,8 @@ void NkDigTimerGraph::OnSize(wxSizeEvent& event)
 	m_graph.height = m_wndSize.y;
 	m_graphArea.x = m_graph.x + (m_txtSize.x * 3) / 2 + 10;
 	m_graphArea.width = m_graph.width - (m_graphArea.x + m_txtSize.y);
-	m_graphArea.y = m_txtSize.y;
-	m_graphArea.height = m_graph.height - (m_graphArea.y + m_txtSize.y + 10);
+	m_graphArea.y = 0; // m_txtSize.y;
+	m_graphArea.height = m_graph.height - (m_txtSize.y*2 + 10);
 
 	if (m_lines.size())
 	{

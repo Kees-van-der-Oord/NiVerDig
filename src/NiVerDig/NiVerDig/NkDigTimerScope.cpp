@@ -138,6 +138,7 @@ public:
 		{
 			m_tool->EnableTool(ID_TOOLON, false);
 		}
+		if (m_mode == MODE_RECORD) m_save = true;
 		OpenDataFile(file);
 
 		if (m_main->m_pins.items.size() && (m_main->m_pins.items[0].values.size() > 1))
@@ -209,7 +210,7 @@ public:
 			{
 				m_isTempData = false;
 				if (file.Right(6).Lower().CompareTo(L".nkbef")) file += L".nkbef";
-				while(wxFileExists(file))
+				while(wxFileExists(file) && wxFileName(file).GetSize().GetValue())
 				{
 					IncrementFileName(file);
 				}
@@ -260,7 +261,7 @@ public:
 				return false;
 			}
 		}
-		StartThread(false);
+		StartRecording(false);
 		return true;
 	}
 
@@ -278,10 +279,7 @@ public:
 		{
 			m_graph->Reset();
 			size_t pos = 0;
-			if (m_save && (m_format == FORMAT_BINARY))
-			{
-				OpenDataFile(m_filename);
-			}
+			OpenDataFile(m_save && (m_format == FORMAT_BINARY) ? m_filename  : wxString(""));
 			SetFilePointerEx(m_data, *(LARGE_INTEGER*)&pos, NULL, FILE_BEGIN);
 			SetEndOfFile(m_data);
 		}
@@ -289,6 +287,34 @@ public:
 		m_graph->Start(record);
 		m_tool->ToggleTool(ID_TOOLON, record);
 		m_tool->Refresh();
+		if (record)
+		{
+			if (!m_isTempData)
+			{
+				SetStatus(wxString("recording ") + m_filename);
+			}
+			else
+			{
+				SetStatus(wxT("recording"));
+			}
+		}
+		else
+		{
+			SetStatus(wxString(""));
+			if (m_save && m_filename.length())
+			{
+				if (wcscmp(m_data_name, m_filename))
+				{
+					SaveFile();
+				}
+				else
+				{
+					SaveFileInfo(m_data, &m_lastsample);
+					m_graph->SetLastSample(m_lastsample);
+				}
+			}
+			m_main->SetStatus(wxT("scope mode stopped"));
+		}
 	}
 
 	virtual void m_toolTriggerOnToolClicked(wxCommandEvent& event) 
@@ -418,6 +444,12 @@ public:
 		}
 
 		wxFileName fn(m_filename);
+		while(fn.Exists() && fn.GetSize().GetValue())
+		{
+			IncrementFileName(m_filename);
+			fn = wxFileName(m_filename);
+		}
+
 		wxFileDialog dlg(this, wxT("Save NiVerDig Digital Timer Events Recording"), fn.GetPath(), fn.GetFullName(),
 			"Binary Event Format (*.nkbef)|*.nkbef|Text Event Format (*.nktef)|*.nktef|Relative Timing Text Event Format (*.nkref)|*.nkref", wxFD_SAVE /*| wxFD_OVERWRITE_PROMPT*/);
 		dlg.SetFilterIndex(m_format);
@@ -431,7 +463,8 @@ public:
 			}
 			// wxFileDialog adds the extension AFTER the checking if the file exists ...
 			wxString name = dlg.GetPath();
-			if (wxFileExists(name))
+			fn = wxFileName(name);
+			if(fn.Exists() && fn.GetSize().GetValue())
 			{
 				int answer = wxMessageBox(wxString::Format(wxT("%s exists: overwrite ?"), name), wxMessageBoxCaptionStr, wxYES | wxNO | wxCANCEL);
 				if (answer == wxCANCEL)
@@ -502,18 +535,7 @@ public:
 			m_thread->Wait();
 			delete m_thread;
 			m_thread = NULL;
-			if (m_save && m_filename.length())
-			{
-				if (wcscmp(m_data_name, m_filename))
-				{
-					SaveFile();
-				}
-				else
-				{
-					SaveFileInfo(m_data, &m_lastsample);
-				}
-			}
-			m_main->SetStatus(wxT("scope mode stopped"));
+
 			return;
 		}
 		else
@@ -641,6 +663,11 @@ public:
 	{
 		m_tool->ToggleTool(ID_TOOLARM, false);
 		m_tool->Refresh();
+	}
+
+	void SetStatus(wxString status)
+	{
+		m_scopeStatus->SetLabel(status);
 	}
 
 	frameMain*   m_main;
