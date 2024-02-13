@@ -5,10 +5,11 @@
 
 static const wxCmdLineEntryDesc g_cmdLineDesc[] =
 {
-	{ wxCMD_LINE_OPTION, "r", "record", "<filename>",      wxCMD_LINE_VAL_STRING, wxCMD_LINE_PARAM_OPTIONAL},
-	{ wxCMD_LINE_OPTION, "s", "show",   "minimized|maximized|normal", wxCMD_LINE_VAL_STRING, wxCMD_LINE_PARAM_OPTIONAL},
-	{ wxCMD_LINE_PARAM, NULL, NULL,    "recorded file to view", wxCMD_LINE_VAL_STRING, wxCMD_LINE_PARAM_OPTIONAL},
-	{ wxCMD_LINE_NONE }
+    { wxCMD_LINE_OPTION, "r", "record", "<filename>",      wxCMD_LINE_VAL_STRING, wxCMD_LINE_PARAM_OPTIONAL},
+    { wxCMD_LINE_OPTION, "s", "show",   "minimized|maximized|normal", wxCMD_LINE_VAL_STRING, wxCMD_LINE_PARAM_OPTIONAL},
+    { wxCMD_LINE_PARAM, NULL, NULL,    "recorded file to view", wxCMD_LINE_VAL_STRING, wxCMD_LINE_PARAM_OPTIONAL},
+    //{ wxCMD_LINE_PARAM, NULL, NULL, "recording", wxCMD_LINE_VAL_STRING, wxCMD_LINE_PARAM},
+    { wxCMD_LINE_NONE }
 };
 
 class appMain : public wxApp
@@ -60,7 +61,7 @@ public:
 
     bool OnInit() wxOVERRIDE;
 
-	EMODE    m_mode;
+    EMODE m_mode;
     wxString m_file;
     long     m_showCmd;
 };
@@ -100,6 +101,7 @@ frameMain::frameMain(wxWindow* parent,
     , m_halt(false)
     , m_log()
     , m_ilog(m_log.m_name)
+    , dev_notify(NULL)
 {
     wxGetApp().SetTopWindow(this);
     SetIcon(wxIcon(wxT("IDI_AAAAPPLICATION"), wxBITMAP_TYPE_ICO_RESOURCE, 64, 64));
@@ -141,7 +143,7 @@ void frameMain::StoreSettings()
         m_profile->Write(wxT("Window/Height"), rcWnd.height);
     }
 
-    m_profile->Write(wxT("Port/Name"), m_portName);
+    m_profile->Write(wxT("Port/Name"), m_lastPortName);
     m_profile->Flush();
     wxFileName file(m_profileName);
     SetFileAttributesW(file.GetFullPath().c_str(), FILE_ATTRIBUTE_HIDDEN);
@@ -193,7 +195,8 @@ void frameMain::RestoreSettings()
 
     if (wxGetApp().m_mode != MODE_VIEW)
     {
-        SetPort(m_profile->Read(wxT("Port/Name")));
+        m_lastPortName = m_profile->Read(wxT("Port/Name"));
+        SetPort(m_lastPortName);
     }
     else
     {
@@ -257,6 +260,76 @@ void frameMain::formMainOnClose(wxCloseEvent& event)
     event.Skip();
 }
 
+#if _MSC_VER <= 1500
+const GUID GUID_DEVINTERFACE_COMPORT = { 0x86E0D1E0,0x8089,0x11D0,{0x9C,0xE4,0x08,0x00,0x3E,0x30,0x1F,0x73} };
+#endif
+
+typedef struct _DEV_BROADCAST_HDR {
+    DWORD dbch_size;
+    DWORD dbch_devicetype;
+    DWORD dbch_reserved;
+} DEV_BROADCAST_HDR, * PDEV_BROADCAST_HDR;
+#define DBT_DEVNODES_CHANGED     0x0007
+#define DBT_DEVICEARRIVAL        0x8000
+#define DBT_DEVICEREMOVECOMPLETE 0x8004
+
+#define DBT_DEVTYP_PORT            0x00000003
+typedef struct _DEV_BROADCAST_PORT_W {
+    DWORD dbcc_size;
+    DWORD dbcc_devicetype;
+    DWORD dbcc_reserved;
+    wchar_t dbcc_name[1];
+} DEV_BROADCAST_PORT_W, * PDEV_BROADCAST_PORT_W;
+#define DEV_BROADCAST_PORT DEV_BROADCAST_PORT_W
+#define PDEV_BROADCAST_PORT PDEV_BROADCAST_PORT_W
+
+#define DBT_DEVTYP_DEVICEINTERFACE 0x00000005
+typedef struct _DEV_BROADCAST_DEVICEINTERFACE_W {
+    DWORD dbcc_size;
+    DWORD dbcc_devicetype;
+    DWORD dbcc_reserved;
+    GUID  dbcc_classguid;
+    wchar_t dbcc_name[1];
+} DEV_BROADCAST_DEVICEINTERFACE_W, * PDEV_BROADCAST_DEVICEINTERFACE_W;
+#define DEV_BROADCAST_DEVICEINTERFACE DEV_BROADCAST_DEVICEINTERFACE_W
+#define PDEV_BROADCAST_DEVICEINTERFACE PDEV_BROADCAST_DEVICEINTERFACE_W
+
+void frameMain::RegisterDeviceEventNotifications()
+{
+    DEV_BROADCAST_DEVICEINTERFACE filter = { sizeof(DEV_BROADCAST_DEVICEINTERFACE) };
+    filter.dbcc_devicetype = DBT_DEVTYP_DEVICEINTERFACE;
+    filter.dbcc_classguid = GUID_DEVINTERFACE_COMPORT;
+    dev_notify = RegisterDeviceNotification(this->GetHWND(), &filter, DEVICE_NOTIFY_WINDOW_HANDLE);
+}
+
+LRESULT frameMain::OnDeviceChange(WPARAM wParam, LPARAM lParam)
+{
+    switch (wParam)
+    {
+    case DBT_DEVICEARRIVAL:
+    case DBT_DEVICEREMOVECOMPLETE:
+        break;
+    default:
+        return 0;
+    }
+    PDEV_BROADCAST_HDR lphdr = (PDEV_BROADCAST_HDR)lParam;
+    if (!lphdr || (lphdr->dbch_devicetype != DBT_DEVTYP_PORT)) return 0;
+    PDEV_BROADCAST_PORT lpprt = (PDEV_BROADCAST_PORT)lphdr;
+    const wchar_t* name = lpprt->dbcc_name;
+    if (wcscmp(name, m_lastPortName)) return 0;
+
+    if (IsConnected() && (wParam == DBT_DEVICEREMOVECOMPLETE))
+    {
+        SetPort(wxEmptyString);
+    }
+    else if (!IsConnected() && (wParam == DBT_DEVICEARRIVAL))
+    {
+        SetPort(name);
+    }
+    
+    return 0;
+}
+
 void frameMain::SetStatus(wxString str)
 {
     m_statusBar->SetStatusText(str);
@@ -273,7 +346,7 @@ void frameMain::m_toolPortOnAuiToolBarToolDropDown(wxAuiToolBarEvent& evt)
     int index = 0;
     GetAllPortsInfo(m_ports);
     m_portIds.clear();
-    for (auto i: m_ports)
+    for (auto & i: m_ports)
     {
         wxString port = i.first;
         wxString info = FindKnownVidPid(i.second);
@@ -303,7 +376,7 @@ void frameMain::m_toolPortOnAuiToolBarToolDropDown(wxAuiToolBarEvent& evt)
 void frameMain::OnMenuCommandPort(wxCommandEvent& event)
 {
     nkDigTimPanel* dtp = dynamic_cast<nkDigTimPanel*>(m_panel);
-    if (dtp && !dtp->CanClosePanel(this))
+    if (dtp && !dtp->CanClosePanel(this, true))
     {
         return;
     }
@@ -318,21 +391,15 @@ void frameMain::OnMenuCommandUpload (wxCommandEvent& evt)
     dlg.ShowModal();
 }
 
-struct SPID_VID
-{
-    unsigned long vid;
-    unsigned long pid;
-    const wchar_t desc[64];
-};
 
 // 2341 Arduino SA
 #define ARDUINO_VID 0x2341
 // 2A03 Arduino Org
 #define ARDUINO_VID2 0x2A03
 
-struct SPID_VID vid_pid[]
+SVID_PID vid_pid[]
 {
-    {ARDUINO_VID, 0x0001, L"Uno(CDC ACM)"},
+    {ARDUINO_VID, 0x0001, L"Uno (CDC ACM)"},
     {ARDUINO_VID, 0x0010, L"Mega 2560 (CDC ACM)"},
     {ARDUINO_VID, 0x0036, L"Leonardo Bootloader"},
     {ARDUINO_VID, 0x0037, L"Micro"},
@@ -340,15 +407,20 @@ struct SPID_VID vid_pid[]
     {ARDUINO_VID, 0x003d, L"Due Programming Port"},
     {ARDUINO_VID, 0x003e, L"Due"},
     {ARDUINO_VID, 0x003f, L"Mega ADK (CDC ACM)"},
-    {ARDUINO_VID, 0x0042, L"Mega 2560 R3 (CDC ACM)"},
-    {ARDUINO_VID, 0x0043, L"Uno R3 (CDC ACM)"},
-    {ARDUINO_VID, 0x0044, L"Mega ADK R3 (CDC ACM)"},
+    {ARDUINO_VID, 0x0042, L"Mega 2560 R3"},
+    {ARDUINO_VID, 0x0043, L"Uno R3"},
+    {ARDUINO_VID, 0x0044, L"Mega ADK R3"},
     {ARDUINO_VID, 0x0045, L"Serial R3 (CDC ACM)"},
     {ARDUINO_VID, 0x0049, L"ISP"},
     {ARDUINO_VID, 0x004D, L"Zero"},
     {ARDUINO_VID, 0x0058, L"Nano Every"},
+    {ARDUINO_VID, 0x0068, L"Portenta C33"},
+    {ARDUINO_VID, 0x006D, L"Uno R4 WiFi DFU"},
+    {ARDUINO_VID, 0x0069, L"Uno R4 Minima"},
     {ARDUINO_VID, 0x0242, L"Genuino Mega2560-R3"},
     {ARDUINO_VID, 0x0243, L"Genuino Uno-R3"},
+    {ARDUINO_VID, 0x0369, L"Uno R4 Minima DFU"},
+    {ARDUINO_VID, 0x1002, L"Uno R4 WiFi"},
     {ARDUINO_VID, 0x8036, L"Leonardo (CDC ACM, HID)"},
     {ARDUINO_VID, 0x8037, L"Micro"},
     {ARDUINO_VID, 0x8038, L"Robot Control Board (CDC ACM, HID)"},
@@ -356,22 +428,48 @@ struct SPID_VID vid_pid[]
     {ARDUINO_VID, 0x804D, L"Zero"}
 };
 
-wxString FindKnownVidPid(wxString info)
+SVID_PID* FindKnownVidPid(unsigned long vid, unsigned long pid)
 {
-    info.Replace(wxT("\t"), wxT(" "));
-    wxRegEx re(wxT(".+? ([0-9a-fA-F]+) VID:([0-9a-fA-F]+) PID:([0-9a-fA-F]+)"));
+    if (vid == ARDUINO_VID2) vid = ARDUINO_VID;
+    for (size_t i = 0; i < countof(vid_pid); ++i)
+    {
+        if ((vid_pid[i].vid == vid) && (vid_pid[i].pid == pid))
+        {
+            return vid_pid + i;
+        }
+    }
+    return NULL;
+}
+
+wxString FindKnownVidPid(wxString info, arduinoDevice * device)
+{
+    wxRegEx re(wxT("(.+)?\tVID:([0-9a-fA-F]+) PID:([0-9a-fA-F]+)( REV:([0-9a-fA-F]+))?( SN:.+)?"));
     if (re.Matches(info))
     {
         unsigned long vid = 0, pid = 0;
         re.GetMatch(info, 2).ToULong(&vid,16);
         re.GetMatch(info, 3).ToULong(&pid,16);
-        if (vid == ARDUINO_VID2) vid = ARDUINO_VID;
-        for (size_t i = 0; i < countof(vid_pid); ++i)
+        SVID_PID * vid_pid = FindKnownVidPid(vid, pid);
+        if(vid_pid)
         {
-            if ((vid_pid[i].vid == vid) && (vid_pid[i].pid == pid))
+            wxString desc = wxT("Arduino ") + wxString(vid_pid->desc);
+            wxString rev = re.GetMatch(info, 4);
+            if (rev.length())
             {
-                return wxString(wxT("Arduino ")) + vid_pid[i].desc + wxT(" ") + re.GetMatch(info, 1);
+                desc += wxT(" ") + rev;
             }
+            wxString sn = re.GetMatch(info, 6);
+            if (sn.length())
+            {
+                desc += wxT("\t") + sn;
+            }
+            if (device)
+            {
+                device->vid_pid = wxString::Format(wxT("%04X:%04X"), vid, pid);
+                device->sn = sn.Mid(4);
+                device->name = vid_pid->desc;
+            }
+            return desc;
         }
     }
     return info;
@@ -385,7 +483,9 @@ void frameMain::ClosePort()
 
 void frameMain::SetPort(wxString port)
 {
+    wxBusyCursor wait;
     ClosePort();
+    ShowPanel(ECONTROLPANEL, true, false);
     m_statusBar->SetStatusText(wxT("not connected"));
     m_portName.Clear();
     m_toolPort->SetLabel(wxT("Port ..."));
@@ -423,7 +523,7 @@ void frameMain::SetPort(wxString port)
         long count = 0;
         wxLongLong waitUntil;
 
-        WriteLine(wxT("\n"));
+        WriteLine(wxT("?\n"));
         count = ReadLine(answer, countof(answer) - 1, 2000); // the Arduino Uno waits 1 second for program upload
         if ((count > 0) && !wcsncmp(answer, wxT("NiVerDig"), 8))
         {
@@ -447,6 +547,7 @@ void frameMain::SetPort(wxString port)
 
     SetTitle(port, answer);
     m_portName = port;
+    m_lastPortName = port;
     m_toolPort->SetLabel(port);
     m_statusBar->SetStatusText(wxT("connected to ") + port);
     m_toolBar->Realize();
@@ -489,7 +590,7 @@ long frameMain::ReadLine(wchar_t* answer, long size, unsigned long timeout)
 void frameMain::ReadAll()
 {
     wchar_t answer[1024];
-    while (ReadLine(answer, 1024, 1) > 0)
+    while (ReadLine(answer, 1024, 100) > 0)
     {
     }
 }
@@ -546,14 +647,14 @@ void frameMain::m_toolHelpOnToolClicked(wxCommandEvent& event)
     ShellExecute(NULL, L"open", pdf.GetFullPath(), NULL, NULL, SW_SHOWNORMAL);
 }
 
-bool frameMain::ShowPanel(int panel, bool refresh)
+bool frameMain::ShowPanel(int panel, bool refresh, bool allow_veto)
 {
     if (!refresh && (m_epanel == panel)) return true;
 
     if ((m_epanel != panel) && m_panel)
     {
         nkDigTimPanel* dtp = dynamic_cast<nkDigTimPanel*>(m_panel);
-        if (dtp && !dtp->CanClosePanel(this))
+        if (dtp && !dtp->CanClosePanel(this, allow_veto))
         {
             m_toolBar->ToggleTool(m_epanel, true);
             m_toolBar->Refresh();
@@ -872,7 +973,8 @@ void frameMain::SendItems(SItems& new_items)
     for(int64_t diff = int64_t(org_items->items.size()) - int64_t(new_items.items.size()); diff > 0; --diff)
     {
         WriteLine(new_items.command + wxT(" -"));
-        while (ReadLine(answer, 2048, 100)) {}
+        ReadLine(answer, 2048, 500); // pin/task deleted
+        //while (ReadLine(answer, 2048, 100) > 0) {}
     }
 
     int halt = m_halt;
@@ -888,7 +990,9 @@ void frameMain::SendItems(SItems& new_items)
         {
             wxString line = new_items.command + wxT("\t") + item.values[0] + wxT("\tname\t") + item.values[1] + wxT("\n");
             WriteLine(line);
-            while (ReadLine(answer, 2048, 100)) {}
+            ReadLine(answer, 2048, 500); // header row
+            ReadLine(answer, 2048, 500); // status row
+            //while (ReadLine(answer, 2048, 100) > 0) {}
         }
     }
     // now send the full item definitions
@@ -907,7 +1011,9 @@ void frameMain::SendItems(SItems& new_items)
         }
         line += wxT("\n");
         WriteLine(line);
-        while (ReadLine(answer, 2048, 100)) {}
+        ReadLine(answer, 2048, 500); // line with header
+        ReadLine(answer, 2048, 500); // line new status
+        //while (ReadLine(answer, 2048, 100) > 0) {}
     }
 
     if (new_items.command == wxT("dpin")) ParsePins();

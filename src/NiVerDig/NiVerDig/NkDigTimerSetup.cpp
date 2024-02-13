@@ -378,6 +378,8 @@ public:
 
 	void Send()
 	{
+		wxBusyCursor wait;
+
 		UpdateChanged();
 		if (!m_changed) return;
 		m_main->SendItems(m_items);
@@ -462,7 +464,7 @@ public:
 		UpdateChanged();
 	}
 
-	bool CanClosePanel(wxFrame * mainFrame)
+	bool CanClosePanel(wxFrame * mainFrame, bool allow_veto)
 	{
 		UpdateChanged();
 		if (m_changed)

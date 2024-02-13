@@ -60,17 +60,19 @@ NiVerDig/Sketch:
   version 8/32: 13-01-2023: changed terminator to CR+NL to satisfy both NIS \r and Arduino serial monitor \n
   version 10/33: 13-01-2023: fixed name first BNC, set default task count to 0
   version 12/34: 20-01-2023: no change: timestamp of fast pulses is overwritten: should be detected on PC side ...
-  version 13/36: 05-05-2023: fixed crash in COM port list - added ADC support
+  version 13/35: 05-05-2023: fixed crash in COM port list - added ADC support
+  version 14/38: 26-08-2023: added support for the Uno R4
 */
 
 #include <limits.h>
-#include <Wire.h>
 #include <EEPROM.h>
 
+// to save variable memory RAM space, some constant strings are the program memory (PROGMEM)
+#define FS(x) (__FlashStringHelper*)(x)
+
+#define countof(A) (sizeof(A)/sizeof((A)[0]))
 #define MAX_BYTE ((byte)0xFF)
-#ifndef sbi
-#define sbi(sfr, bit) (_SFR_BYTE(sfr) |= _BV(bit))
-#endif
+#define MAX_ULONG 0xFFFFFFFF
 
 //#define DEBUG             // define to get debug output set with 'verbose' 
 //#define DEFAULTCONFIG     // defining this will NOT restore the pins and tasks from EEPROM
@@ -83,14 +85,22 @@ NiVerDig/Sketch:
 #define EX_EEPROM_SIZE 0x8000  // 24LC256 is 256kbit = 32768 bytes
 #endif
 
+#if defined(ARDUINO_FSP)
+#undef PROGMEM
+#define PROGMEM
+#undef FS
+#define FS(x) x
+#undef F
+#define F(x) x
+#endif
+
 #if defined(EX_EEPROM_ADDR)
 #include "SerialEEPROM.h"
 SerialEEPROM eeprom;
 #define EEPROM_SIZE EX_EEPROM_SIZE // override definition of the internal EEPROM size 
 #endif
 
-// Timer1 (AVR) or TimerB0 (MegaAVR)
-#define MAX_ULONG 0xFFFFFFFF
+// Timer1 (AVR), TimerB0 (MegaAVR), TimerGPT0 (RENESAS_UNO)
 #if defined(ARDUINO_ARCH_AVR)
 #include <TimerOne.h>
 #define AVR_TIMER1_LIMIT 8388480 // about 8 seconds
@@ -98,12 +108,17 @@ SerialEEPROM eeprom;
 #include "EveryTimerB.h"
 #define Timer1 TimerB2
 #define AVR_TIMER1_LIMIT (MAX_LONG/2)
+#elif defined(ARDUINO_ARCH_RENESAS_UNO) || defined(ARDUINO_PORTENTA_C33)
+#include "UnoR4Timer.h"
+UnoR4Timer TimerGPT0(TIMER_MODE_ONE_SHOT, GPT_TIMER, 0, TIMER_SOURCE_DIV_16);
+#define Timer1 TimerGPT0
+#define AVR_TIMER1_LIMIT (MAX_LONG/6) // 3 ticks per us, half range
 #endif
 
 // if you change the PINCOUNT, struct pin, TASKCOUNT, struct task: add isrs and increment MODEL (because the EEPROM layout changes)
 #define MODEL       3
 #define REVISION    2
-#define VERSION     36
+#define VERSION     38
 #define BAUD_RATE   500000 // for the uno and mega
 #define EOL "\r\n"
 #define BUTTON_PIN  8      // press the button during boot to set halt (1 second) or reset (5 seconds)
@@ -128,6 +143,8 @@ bool checkpin(byte pin) { return pin < 14; }
 #define ISRCOUNT 2
 byte isr_pins[ISRCOUNT] = {2, 3};
 byte checkAdcPin(byte pin) { if(pin > 6) return MAX_BYTE; return pin; }
+#define USEADC
+byte checkPwmPin(byte pin) { return ((pin != 3) && (pin != 5) && (pin != 6) && (pin != 9) && (pin != 10) && (pin != 11)) ? MAX_BYTE : pin; }
 
 // Nano
 #elif defined(ARDUINO_AVR_NANO)
@@ -137,10 +154,10 @@ bool checkpin(byte pin) { return pin < 14; }
 #define PINCOUNT  4
 #define TASKCOUNT 4
 #define PinStatus int
-#undef RED_LED_PIN   // uno model does not have LED mounted
+#undef RED_LED_PIN   // nano model does not have LED mounted
 #define ISRCOUNT 2
 byte isr_pins[ISRCOUNT] = {2, 3};
-byte checkAdcPin(byte pin) { if(pin > 8) return MAX_BYTE; return pin;}
+byte checkPwmPin(byte pin) { return ((pin != 3) && (pin != 5) && (pin != 6) && (pin != 9) && (pin != 10)) ? MAX_BYTE : pin; }
 
 // Mega2560
 // version 26:
@@ -156,6 +173,8 @@ bool checkpin(byte pin) { return pin < 54; }
 #define ISRCOUNT 6
 byte isr_pins[ISRCOUNT] = {2, 3, 18, 19, 20, 21};
 byte checkAdcPin(byte pin) { if(pin > 16) return MAX_BYTE; return pin;}
+#define USEADC
+byte checkPwmPin(byte pin) { return ((pin >= 2) && (pin <= 13)) || ((pin >= 44) && (pin <= 46)) ? pin : MAX_BYTE; }
 
 // Nano Every ATMega4809
 // Version 26:
@@ -179,8 +198,49 @@ bool checkpin(byte pin) { return (pin < HWPINCOUNT) && (pin != 18) && (pin != 19
 #define ISRCOUNT 22
 byte isr_pins[ISRCOUNT] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21};
 #undef BAUD_RATE
-#define BAUD_RATE  921600
-byte checkAdcPin(byte pin) { if(pin > 8) return MAX_BYTE; return pin;}
+#define BAUD_RATE  1000000
+byte checkPwmPin(byte pin) { return ((pin != 3) && (pin != 5) &&  (pin != 9) && (pin != 10)) ? MAX_BYTE : pin; }
+
+// Uno R4 Minima and Wifi Renesas RA4M1
+#elif defined(ARDUINO_ARCH_RENESAS_UNO)
+// version 38:
+// Sketch uses 86648 bytes (33%) of program storage space. Maximum is 262144 bytes.
+// Global variables use 8640 bytes (26%) of dynamic memory, leaving 24128 bytes for local variables. Maximum is 32768 bytes.
+#undef BAUD_RATE
+#define BAUD_RATE  2000000
+#define HWPINCOUNT 14 
+bool checkpin(byte pin) { return pin < HWPINCOUNT; }
+#define PINCOUNT  22 // 14 digital pins, 8 analog pins
+#define TASKCOUNT 52
+#define EEPROM_SIZE 262143  // 14 * 20 + 52 * 45 = 14940
+#undef RED_LED_PIN
+#define RED_LED_PIN 11
+#undef BUTTON_PIN
+#define BUTTON_PIN 10
+#define ISRCOUNT 14
+byte isr_pins[ISRCOUNT] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13};
+byte checkAdcPin(byte pin) { if(pin >= 6) return MAX_BYTE; return pin; }
+#define USEADC R4 1.0.5: async mode does not work :-( 
+// with the Arduino UNO R4 Boards pacakge 1.0.5, you have to remove the 'static' keyword from the 
+// definition of the variable analog_values_by_channels on line 14 of 
+// C:\Users\Kees\AppData\Local\Arduino15\packages\arduino\hardware\renesas_uno\1.0.5\cores\arduino\analog.cpp
+// /*static*/ uint16_t analog_values_by_channels[MAX_ADC_CHANNELS] = {0};
+byte checkPwmPin(byte pin) { return ((pin == 6) || (pin ==7)) ? MAX_BYTE: pin; }
+//#define USEDAC
+
+// Portenta C33
+#elif defined(ARDUINO_PORTENTA_C33)
+#define HWPINCOUNT 14
+bool checkpin(byte pin) { return pin < 14; }
+#define EEPROM_SIZE 2048 
+#define PINCOUNT  14
+#define TASKCOUNT 28
+#undef RED_LED_PIN   // uno model does not have LED mounted
+#define ISRCOUNT 14
+byte isr_pins[ISRCOUNT] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13};
+#undef BAUD_RATE
+#define BAUD_RATE  250000
+byte checkPwmPin(byte pin) { return pin; }
 
 #else
 #define HWPINCOUNT 100
@@ -190,7 +250,7 @@ bool checkpin(byte pin) { return true; }
 #define TASKCOUNT 4
 #define ISRCOUNT 0
 byte isr_pins[1] = {-1};
-byte checkAdcPin(byte pin) { return MAX_BYTE; }
+byte checkPwmPin(byte pin) { return pin; }
 
 #endif
 
@@ -214,34 +274,31 @@ byte checkAdcPin(byte pin) { return MAX_BYTE; }
 #define NOISR  MAX_BYTE
 #define NOVAR  MAX_BYTE
 
-// to save variable memory RAM space, some constant strings are the program memory (PROGMEM)
-#define FS(x) (__FlashStringHelper*)(x)
-#define countof(A) (sizeof(A)/sizeof((A)[0]))
 typedef const char * (*pf_get_item_name)(byte i);
 
 // global variables set by commands
 byte          in_setup  = 1;   // set during setup()
 byte          halt      = 0;   // stops all tasks
 unsigned long echo      = 0;   // echo serial input
-const char *  es        = "";  // empty string
-const char *  ss        = " "; // single space
+const char * const es   = "";  // empty string
+const char * const ss   = " "; // single space
 #if defined(DEBUG)
 unsigned long verbose = DEFAULT_VERBOSE; // verbose: send diagnostic output to serial port
 #endif
 
 // general functions
-byte parse_index_or_name(char * s, void * pf);
+byte parse_index_or_name(const char * s, void * pf);
 unsigned long parse_ulong(const char * s);
 long parse_long(const char * s);
 unsigned long parse_byte(const char * s);
 void print_time(unsigned long t);
-unsigned long parse_time(const char *s);
-byte parse_enum(const char *s, const char ** e);
+unsigned long parse_time(const char * s);
+byte parse_enum(const char * s, const char * const * e);
 unsigned long parse_byte(const char * s);
 void print_time(unsigned long t);
 void cmd_info_var(byte cmd_index);
 void print_options(char key[MAX_KEY_SIZE], byte o, const char *info);
-unsigned long atoul(char * s);
+unsigned long atoul(const char * s);
 #if defined(DEBUG)
 void print_free_memory(int line);
 #endif
@@ -279,6 +336,107 @@ void cmd_reset(byte cmd_index, byte argc, char**argv);
 #define HMAX_LONG (MAX_LONG/2)
 #define MIN_PERIOD 100   // isr takes 80us to complete, so 100 us the minimal timing
 
+int  init_input();
+int  read_input();
+void process_input();
+void check_eeprom_usage();
+
+/////////////////////
+// setup and loop
+////////////////////
+
+
+void setup()
+{
+  // Serial port initialization
+  init_input();
+
+  // welcome text
+  Serial.print(FS(title)); Serial.print(MODEL); Serial.print(F(".")); Serial.print(REVISION); Serial.print(F(".")); Serial.print(VERSION); Serial.print(F(EOL));
+  Serial.print(F("enter ? to see available commands" EOL));
+  
+  // EERPROM 
+  check_eeprom_usage();
+#if defined(EX_EEPROM_ADDR)
+  eeprom.init(EX_EEPROM_ADDR, EX_EEPROM_SIZE);
+#endif
+
+  // test micrros and interrupts
+#if defined(DEBUG)  
+  if (verbose > 0) {
+    test_micros();
+    test_interrupts();
+  }
+#endif
+
+  // timer
+  Timer1.initialize();
+  Timer1.attachInterrupt(timer_interrupt_callback);
+  Timer1.stop();
+
+  init_vars();
+
+  // button actions on boot: 1 second press: HALT, 5 second press: RESEST
+#ifdef BUTTON_PIN
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  halt = !digitalRead(BUTTON_PIN);
+  if (halt) {
+    // wait one second if the button is still pressed
+    byte pressed;
+    unsigned long start_tick = millis();
+    while (pressed = !digitalRead(BUTTON_PIN)) {
+      if (!pressed) break;
+      unsigned long period = millis() - start_tick;
+      if (period > 5000) break;
+#ifdef RED_LED_PIN
+      if (!(period % 500)) {
+        unsigned long count = period / 500;
+        if (count == 1) {
+          pinMode(RED_LED_PIN, OUTPUT);
+        }
+        digitalWrite(RED_LED_PIN, !(count % 2));
+      }
+#endif      
+    }
+    if (pressed) {
+      Serial.print("pin and task definitions reset to factory default because button pin is pressed 5 seconds" EOL);
+      cmd_reset(0, 0, NULL);
+      halt = 0;
+    }
+  }
+#endif
+
+#if defined(ARDUINO_ARCH_RENESAS_UNO)
+    analogReadResolution(10);
+#endif
+
+  // actions
+  reset_pin_states(0, -1);
+  if (!halt) {
+    arm_tasks(0, -1);
+  } else {
+    Serial.print("task executing halted because button pin is pressed during startup" EOL);
+  }
+}
+
+void loop()
+{
+  // check if data has been sent from the computer:
+  if (Serial.available())
+  {
+    if (read_input())
+    {
+      process_input();
+    }
+  }
+  check_input_pins();
+  tick_tasks();
+  check_finished_tasks();
+#if defined(DEBUG)  
+  if (verbose) report_changes2();
+#endif
+}
+
 /////////////////////
 // pin
 ////////////////////
@@ -287,17 +445,17 @@ struct pin
 {
   char          name[MAX_NAME_SIZE];  // 10 bytes
   unsigned char pin;                  // Arduino pin (0-based)
-  unsigned char startup_mode;         // startup mode: input,output,pullup,pwm,adc
+  unsigned char startup_mode;         // startup mode: input,output,pullup,pwm,adc,dac
   unsigned char startup_state;        // initial pin state
   unsigned char toggle_state;         // alternate pin state
 
   // starting from the 'state' variable the information is not saved in EEPROM
   unsigned char          intr_index; // index of isr
-  unsigned char          mode;       // current mode: input,output,pullup,pwm,adc
+  unsigned char          mode;       // current mode: input,output,pullup,pwm,adc,dac
   volatile unsigned int  state;      // adc delivers 10 bits
-  volatile unsigned char changed;    // flag to indicate that state changed
   volatile unsigned long tick;       // us time-stamp of change
-}; // 23 bytes
+  volatile unsigned char changed;    // flag to indicate that state changed
+}; // 23 bytes on 16-bits AVR, 25 bytes on 32-bits Renesas
 
 // these var are initialized in reset_pins() that is called by Setup();
 byte   pin_count;
@@ -314,16 +472,46 @@ void cmd_info_pins()
   Serial.print(F(" <index>  : [1 to ")); Serial.print(PINCOUNT); Serial.print(F("]" EOL));
   Serial.print(F(" <name>   : quoted pin name [")); Serial.print(MAX_NAME_LENGTH); Serial.print(F("]" EOL));
   Serial.print(F(" <pin>    : [0 to ")); Serial.print(HWPINCOUNT - 1); Serial.print(F("]" EOL));
+  #if defined(USEADC)
+  #if defined(USEDAC)
+  Serial.print(F(" <mode>   : (output|input|pullup|pwm|adc|dac)" EOL));
+  #else // USEDAC
   Serial.print(F(" <mode>   : (output|input|pullup|pwm|adc)" EOL));
+  #endif // USEDAC
+  #else // USEADC
+  #if defined(USEDAC)
+  Serial.print(F(" <mode>   : (output|input|pullup|pwm|dac)" EOL));
+  #else // USEDAC
+  Serial.print(F(" <mode>   : (output|input|pullup|pwm)" EOL));
+  #endif // USEDAC
+  #endif // USEADC
   Serial.print(F(" <init>   : <output> [0 to 1] (low|high) <pwm> [0 to 255]" EOL));
   Serial.print(F(" <toggle> : <pwm> [0 to 255]" EOL));
 }
 const char pin_prop_info[] PROGMEM = "name,pin,mode,init,toggle";
 const char state_info[] PROGMEM    = "low,high";
+#if defined(USEADC)
+#if defined(USEDAC)
+const char mode_info[] PROGMEM     = "output,input,pullup,pwm,adc,dac";
+#else // USEDAC
 const char mode_info[] PROGMEM     = "output,input,pullup,pwm,adc";
-const char * mode_code[]           = {"o", "i", "u", "p", "a"};
-enum mode_indices { MODOUT, MODINP, MODPUP, MODPWM, MODADC };
-byte mode_values[]                 = {OUTPUT, INPUT, INPUT_PULLUP, OUTPUT, INPUT};
+#endif // USEDAC
+#else // USEADC
+#if defined(USEDAC)
+const char mode_info[] PROGMEM     = "output,input,pullup,pwm,dac";
+#else // USEDAC
+const char mode_info[] PROGMEM     = "output,input,pullup,pwm";
+#endif // USEDAC
+#endif // USEADC
+#if defined(USEADC)
+enum mode_indices { MODOUT, MODINP, MODPUP, MODPWM, MODADC, MODDAC };
+byte mode_values[]                 = {OUTPUT, INPUT, INPUT_PULLUP, OUTPUT, INPUT, OUTPUT};
+const char * const mode_code[]     = {"o", "i", "u", "p", "a", "d"};
+#else // USEADC
+enum mode_indices { MODOUT, MODINP, MODPUP, MODPWM, MODDAC };
+byte mode_values[]                 = {OUTPUT, INPUT, INPUT_PULLUP, OUTPUT, OUTPUT};
+const char * const mode_code[]     = {"o", "i", "u", "p", "d"};
+#endif // USEADC
 
 // command to print out the current pin definition in the 'dpin' format
 void cmd_config_pins(byte b, byte e)
@@ -363,8 +551,13 @@ void cmd_status_pin(byte b, byte e)
     {
       case MODINP:
       case MODOUT: Serial.print(F("[0 to 1] ")); break;
+#if defined(USDADC)
       case MODADC: Serial.print(F("[0 to 1023] ")); break;
+#endif
       case MODPWM: Serial.print(F("[0 to 255] ")); break;
+#if defined(USEDAC)
+      case MODDAC: Serial.print(F("[0 to 4095")); break;
+#endif
     }
     Serial.print(F("'"));
     Serial.print(p.name);
@@ -415,6 +608,13 @@ void cmd_pin_status(byte cmd_index, byte argc, char **argv)
     v = v ? 1 : 0;
     digitalWrite(p.pin, v);
   }
+#if defined(USEDAC)
+  else if(p.mode == MODDAC)
+  {
+    if (v > 4095) v = 4095;
+    analogWrite(p.pin, (byte)v);
+  }
+#endif
   else // pwm
   {
     if (v > 255) v = 255;
@@ -432,10 +632,27 @@ const char * get_pin_name(byte i)
   return pins[i].name;
 }
 
+void clear_pin(int pi)
+{
+    struct pin & p = pins[pi];
+    detachInterrupt(p.pin);
+}
+
+void clear_pins()
+{
+  for(int i = 0; i < pin_count; ++i)
+  {
+    clear_pin(i);
+  }
+}
+
 void reset_pins()
 {
   /*  name, pin, startup_mode, startup_state, state, intr_index, mode */
+  clear_pins();
   struct pin default_pins[] = {
+
+// the first model (UNO R3) has two BNCs and one button
 #if defined(ARDUINO_AVR_UNO)
     {"BNC in",    2, MODINP, 0},
 #if PINCOUNT >= 2
@@ -444,33 +661,44 @@ void reset_pins()
 #if PINCOUNT >= 3
     {"button",    8, MODPUP, 0},
 #endif
-#else    
-    {"black BNC",    2, MODINP, 0},
-#if PINCOUNT >= 2
+// ARDUINO_AVR_UNO
+
+// the second model (MEGA 2560) has a VGA-BNC cable with 5 BNCs, RGB LED and a button  
+#elif defined(ARDUINO_AVR_MEGA2560)
+    {"black BNC",  2, MODINP, 0},
     {"grey BNC",   3, MODINP, 0},
-#endif
-#if PINCOUNT >= 3
     {"red BNC" ,  18, MODINP, 0},
-#endif
-#if PINCOUNT >= 4
     {"green BNC", 19, MODINP, 0},
-#endif
-#if PINCOUNT >= 5
     {"blue BNC",  20, MODINP, 0},
-#endif
-#if PINCOUNT >= 6
     {"red LED",   5, MODOUT, 0},
-#endif
-#if PINCOUNT >= 7
     {"green LED", 6, MODOUT, 0},
-#endif
-#if PINCOUNT >= 8
     {"blue LED",  7, MODOUT, 0},
-#endif
-#if PINCOUNT >= 9
     {"button",   8, MODPUP, 0},
-#endif
-#endif  
+// ARDUINO_AVR_MEGA2560
+
+// the third model (UNO R4) has 6 BNCs, a button and a RGB LED
+// note: pin 6 and 7 do not support PWM, so these are skipped by default
+#elif defined(ARDUINO_ARCH_RENESAS_UNO)
+    {"BNC 1",      2, MODINP, 0},
+    {"BNC 2",      3, MODINP, 0},
+    {"BNC 3",      4, MODINP, 0},
+    {"BNC 4",      5, MODINP, 0},
+    {"BNC 5",      8, MODINP, 0},
+    {"BNC 6",      9, MODINP, 0},
+    {"button",    10, MODPUP, 0},
+    {"red LED",   11, MODOUT, 0},
+    {"green LED", 12, MODOUT, 0},
+    {"blue LED",  13, MODOUT, 0},
+    {"A0",         0, MODADC, 0},
+// ARDUINO_ARCH_RENESAS_UNO
+
+#else
+    {"BNC in",    2, MODINP, 0},
+    {"BNC out",   3, MODOUT, 0},
+    {"button",    8, MODPUP, 0},
+
+#endif 
+
   };
   pin_count = countof(default_pins);
   memcpy(pins, default_pins, sizeof(default_pins));
@@ -483,7 +711,9 @@ void init_pins()
   {
     struct pin & p = pins[pi];
     p.mode = p.startup_mode;
-    pinMode(p.pin, mode_values[p.mode]);
+    byte pin = p.pin;
+    if(p.mode == MODADC) pin += A0;
+    pinMode(pin, mode_values[p.mode]);
     update_pin_supports_intr(p);
   }
   if (!in_setup)
@@ -514,11 +744,13 @@ void reset_pin_states(byte b, byte e)
     else
     {
       word state;
+#if defined(USEADC)      
       if (p.mode == MODADC)
       {
-        state = analogRead(p.pin);
+        state = analogRead(p.pin + A0);
       }
       else
+#endif
       {
         state = digitalRead(p.pin);
       }
@@ -541,6 +773,12 @@ byte parse_pin_state(struct pin & p, byte default_value, const char * text)
     {
       lval = 255; // in PWM mode, high is 255
     }
+#if defined(USEDAC)
+    if ((p.mode == MODDAC) && (lval == 1))
+    {
+      lval = 4095; // in DAC mode, high is 4095
+    }
+#endif
   }
   else
   {
@@ -554,6 +792,12 @@ byte parse_pin_state(struct pin & p, byte default_value, const char * text)
   {
     lval = lval ? 1 : 0;
   }
+#if defined(USEDAC)
+  else if (p.mode == MODDAC)
+  {
+    lval = lval ? 1 : 0;
+  }
+#endif
   else // PWM
   {
     if (lval < 0) lval = 0;
@@ -573,6 +817,7 @@ void cmd_pins(byte cmd_index, byte argc, char **argv)
   if (argc && (argv[0][0] == '-'))
   {
     if (argv[0][1] == '*') {
+      clear_pins();
       pin_count = 0;
       Serial.print(F("all pins deleted." EOL));
       // to do: remove tasks that use these pins ?
@@ -582,6 +827,7 @@ void cmd_pins(byte cmd_index, byte argc, char **argv)
       if (pin_count)
       {
         --pin_count;
+        clear_pin(pin_count);
         Serial.print(F("pin ")); Serial.print(pin_count + 1); Serial.print(F(" deleted." EOL));
         // to do: remove tasks that use this pin ?
       }
@@ -590,12 +836,12 @@ void cmd_pins(byte cmd_index, byte argc, char **argv)
     return;
   }
   byte pi = parse_index_or_name(argv[0], (void*)&get_pin_name);
-  if (pi == (byte) - 1)
+  if (pi == NOPIN)
   {
     // first argument is pin index
     pi = parse_ulong(argv[0]);
-    if (pi != (byte) - 1) --pi;
-    if ((pi == (byte) - 1) || (argc < 2))
+    if (pi != NOPIN) --pi;
+    if ((pi == NOPIN) || (argc < 2))
     {
       Serial.print(F("pin argument error: first argument should be pin index or name. type 'pin' to see defined pins." EOL));
       return;
@@ -670,7 +916,11 @@ void cmd_pins(byte cmd_index, byte argc, char **argv)
     if (val == BUTTON_PIN) p.mode = MODPUP; // button pin mode should always be pullup
 #endif
     if(!checkpin(val)) val = NOPIN;
-    if (val != NOPIN) p.pin = val;
+    if ((val != p.pin) && (val != NOPIN))
+    {
+      clear_pin(pi);
+      p.pin = val;
+    } 
   }
   if (!prop_mode) {
     ++argi;
@@ -680,11 +930,22 @@ void cmd_pins(byte cmd_index, byte argc, char **argv)
   if ((argc > argi) && (propi == 3))
   {
     val = find_key_index(mode_info, argv[argi]);
-    if(val == MODADC) {
+    if(val == MODPWM)
+    {
+      if(checkPwmPin(p.pin) == MAX_BYTE) {
+        val = MODOUT;
+      }
+    }
+#if defined(ADC)
+    if(val == MODADC) 
+    {
       if(checkAdcPin(p.pin) == MAX_BYTE) {
         p.pin = 0;
       }
-    } else {
+    } 
+    else 
+#endif
+    {
 #if defined(BUTTON_PIN)
       if (p.pin == BUTTON_PIN) val = MODPUP; // button pin mode should always be pullup
 #endif
@@ -740,7 +1001,7 @@ enum triggers
   TRGSTART,    // start when another task starts
   TRGSTOP,     // start when another task stops
 };
-const char *trigger_info[] = {"auto", "manual", "up", "down", "any", "high", "low", "start", "stop", NULL};
+const char * const trigger_info[] = {"auto", "manual", "up", "down", "any", "high", "low", "start", "stop", NULL};
 bool trigger_src_is_pin(byte trigger) {
   return (trigger >= TRGUP) && (trigger <= TRGDOWN);
 }
@@ -750,8 +1011,12 @@ enum actions
   ACTNEGPULS, // negative pulse (start low)
   ACTPOSPULS, // positive pulse (start high)
   ACTTOGLPIN, // toggle pin low/high
+#if defined(USEADC)  
   ACTSTAADC,  // start ADC conversion
   ACTLASTPIN = ACTSTAADC,
+#else
+  ACTLASTPIN = ACTTOGLPIN,
+#endif
   ACTSTOTASK, // stop task
   ACTSTATASK, // start task
   ACTRESTASK, // restart task
@@ -761,7 +1026,10 @@ enum actions
 
 const char action_info[] PROGMEM =
   "none,"
-  "low,high,toggle,adc,"
+  "low,high,toggle,"
+#if defined(USEADC)  
+  "adc,"
+#endif
   "stop,start,restart,arm,kick"
   ;
   
@@ -808,7 +1076,7 @@ struct task {
   unsigned long nexttick;            // next moment of action (us)
   byte          triggered;           // NOT_TRIGGERED, TICK_TRIGGERED, START_TRIGGERED, START_TICK_TRIGGERED
   byte          changed;             // status has changed during interrupt
-}; // 45 bytes
+}; // 45 bytes on 16-bits AVR and on 32-bits Renesas
 
 // these vars are initialized in reset_tasks() called from Setup()
 byte task_count;
@@ -872,16 +1140,23 @@ void cmd_info_tasks()
   Serial.print(F(" <name>   : quoted task name [")); Serial.print(MAX_NAME_LENGTH); Serial.print(F("]" EOL));
   Serial.print(F(" <trigger>: <software> (auto|manual) <input-pin> (up|down|any|high|low) <in-task> (start|stop)" EOL));
   Serial.print(F(" <source> : <input-pin> (input pin-index or pin-name) <in-task> (task-index or task-name)" EOL));
+#if defined(USEADC)
   Serial.print(F(" <action> : <output-pin> (low|high|toggle) <out-task> (arm|start|restart|stop|kick) <adc> (adc) <none> (none)" EOL));
   Serial.print(F(" <target> : <output-pin> (output pin-index or pin-name) <out-task> (task-index or task-name) <adc> (adc pin-index or pin-name) <none> ()" EOL));
+#else
+  Serial.print(F(" <action> : <output-pin> (low|high|toggle) <out-task> (arm|start|restart|stop|kick) <none> (none)" EOL));
+  Serial.print(F(" <target> : <output-pin> (output pin-index or pin-name) <out-task> (task-index or task-name) <none> ()" EOL));
+#endif
   Serial.print(F(" <count>  : [-1 to 1073741820] repeat count: -1 for continuous, 0 for single action" EOL));
   Serial.print(F(" <delay>  : n[s|ms|us] delay: 0 or between 100 us and 17:53" EOL));
   Serial.print(F(" <up>     : n[s|ms|us] up time: 0 or between 100 us and 17:53" EOL));
   Serial.print(F(" <down>   : n[s|ms|us] down time: 0 or between 100 us and 17:53" EOL));
   Serial.print(F(" <options>: (arm-on-finish arm-on-startup interrupts)" EOL));
 }
-const char * task_prop_info[] = {"name", "trigger", "source", "action", "target", "count", "delay", "up", "down", "options", NULL};
-const char * task_stat_info[] = {"stopped", "armed", "finished", "started"};
+
+const char * const task_prop_info[] = {"name", "trigger", "source", "action", "target", "count", "delay", "up", "down", "options", NULL};
+const char * const task_stat_info[] = {"stopped", "armed", "finished", "started"};
+
 const char * get_stat_name(byte s) {
   if ((s < 0) || (s >= countof(task_stat_info))) return task_stat_info[3];
   return task_stat_info[s];
@@ -1162,9 +1437,11 @@ void cmd_tasks(byte cmd_index, byte argc, char**argv)
     }
     if (val != MAX_BYTE) t.dstpin = val;
     else if (t.action == ACTSTOTASK) t.dstpin = NOPIN; // stop all tasks
+#if defined(USEADC)
     if((t.action == ACTSTAADC) && (pins[t.dstpin].mode != MODADC)) {
       for(byte p = 0; p < pin_count; ++p) if(pins[p].mode == MODADC) { t.dstpin = p; break;}
     }
+#endif
   }
   if (!prop_mode) {
     ++argi;
@@ -1289,7 +1566,36 @@ void cmd_arm(byte cmd_index, byte argc, char**argv)
   }
 }
 
-bool in_isr() {
+#if defined(ARDUINO_ARCH_RENESAS_UNO) || defined(ARDUINO_PORTENTA_C33)
+
+bool interrupts_are_disabled() {
+  return __get_PRIMASK();
+}
+
+struct disable_interrupts
+{
+  uint32_t interrupt_mask;
+
+  disable_interrupts()
+  {
+    interrupt_mask = __get_PRIMASK();
+    noInterrupts();
+  }
+
+  ~disable_interrupts()
+  {
+    __set_PRIMASK(interrupt_mask);
+  }
+
+  bool interrupts_were_disabled()
+  {
+    return interrupt_mask;
+  }
+};
+
+#else //AVR
+
+bool interrupts_are_disabled() {
   return !(SREG & 0x80);
 }
 
@@ -1299,23 +1605,18 @@ struct disable_interrupts
   disable_interrupts()
   {
     status = SREG;
-    // when the interrupts are enabled, disable them
-    if (status & 0x80)
-    {
-      cli();
-    }
+    cli();
   }
   ~disable_interrupts()
   {
-    if (status & 0x80)
-    {
-      SREG = status;
-    }
+    SREG = status;
   }
-  bool in_isr() {
+
+  bool interrupts_were_disabled() {
     return !(status & 0x80);
   }
 };
+#endif
 
 inline void task_disable_interrupt(byte ti)
 {
@@ -1475,7 +1776,7 @@ inline void stop_task(byte ti)
     if (t.counter <= CURIDLE)
     {
 #if defined(DEBUG)
-      if (!di.in_isr() && verbose)
+      if (!di.interrupts_were_disabled() && verbose)
         {Serial.print(F("error: task ")); Serial.print(ti + 1); Serial.print(F(" is not active." EOL)); }
 #endif      
       return;
@@ -1558,8 +1859,12 @@ void set_next_timer()
   }
 }
 
-void timer_interrupt_callback()
-{
+#if defined(ARDUINO_ARCH_RENESAS_UNO) || defined(ARDUINO_PORTENTA_C33)
+void timer_interrupt_callback(timer_callback_args_t *) {
+  disable_interrupts di;
+#else
+void timer_interrupt_callback() {
+#endif
   Timer1.stop();
   if (next_timer_task != NOTASK) tick_task(next_timer_task);
   set_next_timer();
@@ -1580,7 +1885,7 @@ inline void start_task(byte ti, unsigned long tick)
     t.counter = t.count * 2 + 1;
     t.changed = true;
     if (!t.waittime) tick_task(ti);
-    if (!di.in_isr())
+    if (!di.interrupts_were_disabled())
     {
       set_next_timer();
     }
@@ -1649,7 +1954,11 @@ void update_pin_supports_intr(struct pin & p)
   p.intr_index = MAX_BYTE;
 #else
   byte intr = digitalPinToInterrupt(p.pin);
-  if((p.mode == MODADC) || (mode_values[p.mode] == OUTPUT) || (intr == MAX_BYTE))
+  if(
+#if defined(USEADC)
+    (p.mode == MODADC) || 
+#endif
+    (mode_values[p.mode] == OUTPUT) || (intr == MAX_BYTE))
   {
     p.intr_index = MAX_BYTE;
     return;
@@ -1663,26 +1972,33 @@ void test_interrupts()
   {
     disable_interrupts di1;
     disable_interrupts di2;
-    if (di1.in_isr())
+    if (di1.interrupts_were_disabled())
     {
       Serial.print(F("interupt test failed: SREG interrupt flag is off." EOL));
     }
-    if (!di2.in_isr())
+    if (!di2.interrupts_were_disabled())
     {
       Serial.print(F("interupt test failed: SREG interrupt flag is on." EOL));
     }
   }
-  if (in_isr())
+  if (interrupts_are_disabled())
   {
     Serial.print(F("interupt test failed: SREG interrupt flag is off." EOL));
   }
 }
 
+#if defined(ARDUINO_FSP)
+#define disable_interrupts_during_isr();  disable_interrupts di;
+#else
+#define disable_interrupts_during_isr();
+#endif
+
 #define PINISR(N) void isr##N(void) { \
-    detachInterrupt(digitalPinToInterrupt(isr_pins[N])); \
-    handle_pin_interrupt(N); \
-    set_next_timer(); \
-  }
+  disable_interrupts_during_isr();\
+  detachInterrupt(digitalPinToInterrupt(isr_pins[N])); \
+  handle_pin_interrupt(N); \
+  set_next_timer(); \
+}
 #if ISRCOUNT > 0
 PINISR(0)
 #endif
@@ -1750,6 +2066,8 @@ PINISR(20)
 PINISR(21)
 #endif
 
+//void pin_callback() {}
+
 inline void set_task_isr(byte ti)
 {
 #if ISRCOUNT == 0
@@ -1773,7 +2091,7 @@ inline void set_task_isr(byte ti)
 #if defined(ARDUINO_AVR_MEGA2560) || defined(ARDUINO_AVR_ADK)
        EIFR = (1 << 4); // mega pin 2 ~ chip pin 6 ~ INT4
 #endif
-      attachInterrupt(intr, isr0, mode); 
+      attachInterrupt(intr,isr0,mode);
     break;
 #if ISRCOUNT > 1
     case  1: 
@@ -1928,7 +2246,11 @@ inline void check_input_pins()
   for (int pi = 0; pi < pin_count; ++pi)
   {
     struct pin & p = pins[pi];
-    if ((mode_values[p.mode] == OUTPUT) || (p.mode == MODADC)) continue;
+    if ((mode_values[p.mode] == OUTPUT) 
+#if defined (USEADC)
+      || (p.mode == MODADC)
+#endif
+      ) continue;
     // todo: check if there are only trigger started tasks ?
     check_input_pin(pi);
   }
@@ -1985,7 +2307,9 @@ inline void tick_tasks()
 inline void set_pin_mode(struct pin & p, byte mode)
 {
   p.mode = mode;
-  pinMode(p.pin, mode_values[mode]);
+  byte pin = p.pin;
+  if(p.mode == MODADC) pin += A0;
+  pinMode(pin, mode_values[mode]);
   if (mode_values[mode] == OUTPUT)
   {
     if (mode == MODOUT)
@@ -2000,11 +2324,13 @@ inline void set_pin_mode(struct pin & p, byte mode)
   }
   else
   {
+#if defined(USEADC)
     if (mode == MODADC)
     {
-      p.state = analogRead(p.pin);
+      p.state = analogRead(p.pin + A0);
     }
     else
+#endif
     {
       p.state = digitalRead(p.pin);
     }
@@ -2050,7 +2376,11 @@ inline void toggle_pin_state(struct pin & p)
   p.changed = true;
 }
 
+#if defined(USEADC)
+
 byte adc_pin = MAX_BYTE;
+
+#if defined(ARDUINO_ARCH_AVR)
 
 inline void start_adc(struct pin & p)
 {
@@ -2123,6 +2453,61 @@ ISR(ADC_vect) {
   // ADCSRA |= B01000000;
 }
 
+#endif
+
+#if defined(ARDUINO_ARCH_RENESAS_UNO)
+
+// with the Arduino UNO R4 Boards pacakge 1.0.5, you have to remove the 'static' keyword from the 
+// definition of the variable analog_values_by_channels on line 14 of 
+// C:\Users\Kees\AppData\Local\Arduino15\packages\arduino\hardware\renesas_uno\1.0.5\cores\arduino\analog.cpp
+// /*static*/ uint16_t analog_values_by_channels[MAX_ADC_CHANNELS] = {0};
+/*
+extern uint16_t analog_values_by_channels[29];
+
+void adc_callback(uint8_t unit)
+{
+  if(adc_pin >= pin_count) return;
+  struct pin & p = pins[adc_pin];
+
+  uint16_t cfg;
+  p.state = analog_values_by_channels[0];
+  p.tick = micros();
+  p.changed = true;
+   
+#if defined(DEBUG)
+  if(verbose >= 3) { Serial.print(__LINE__); Serial.print(" isr adc "); Serial.print(p.state); Serial.print(EOL); }
+#endif
+}
+*/
+
+inline void start_adc(struct pin & p)
+{
+/*
+  adc_pin = &p - pins;
+  byte pin = p.pin;
+  analogAddPinToGroup(pin, ADC_SCAN_GROUP_A);
+  attachScanEndIrq(adc_callback, ADC_MODE_SINGLE_SCAN, 12);
+*/
+  for(byte pi = 0; pi < pin_count; ++pi)
+  {
+      struct pin & p = pins[pi];
+      if(p.mode == MODADC)
+      {
+        uint16_t state = analogRead(p.pin + A0);
+        if(state != p.state)
+        {
+          p.state = state;
+          p.tick = micros();
+          p.changed = true;
+        }
+      }
+  }
+}
+
+#endif
+
+#endif // USEADC
+
 inline void tick_task(byte ti)
 {
   struct task & t = tasks[ti];
@@ -2161,7 +2546,9 @@ inline void tick_task(byte ti)
         case ACTPOSPULS: set_pin_state(p, val); break;
         case ACTNEGPULS: set_pin_state(p, !val); break;
         case ACTTOGLPIN: if (val) toggle_pin_state(p); break;
+#if defined(USEADC)
         case ACTSTAADC: start_adc(p);
+#endif
       }
     }
   }
@@ -2320,6 +2707,17 @@ void reset_vars()
 #define TASKADDRESS (PINADDRESS + sizeof(pin_count) + PINCOUNT * PINSIZE)
 #define TASKSIZE ((byte)(int)(&((struct task *)NULL)->counter))
 #define EEPROM_USAGE (TASKADDRESS + sizeof(task_count) + TASKCOUNT * TASKSIZE)
+
+void check_eeprom_usage()
+{
+  if (EEPROM_USAGE > EEPROM_SIZE) {
+    Serial.print(F("EEPROM usage ")); Serial.print(EEPROM_USAGE); Serial.print(F(" exceeds size ")); Serial.print(EEPROM_SIZE); Serial.print(F(EOL));
+    byte len = PINSIZE;
+    Serial.print(F("pin  memory size: ")); Serial.print(len);
+    len = TASKSIZE;
+    Serial.print(F("task memory size: ")); Serial.print(len); Serial.print(F(EOL));
+  }
+}
 
 bool check_model_and_revision()
 {
@@ -2548,10 +2946,15 @@ void send_scope_data()
 #if defined(DEBUG)
     if(!verbose)
 #endif
-    // read the pin state from the device because the isr() could have changed it ?
-    if(p.mode == MODADC) {
+#if defined(USEADC)
+    if(p.mode == MODADC) 
+    {
       Serial.write(pi); Serial.write(byte(p.state>>2)); SerialWriteULong(p.tick);
-    } else    {
+    } 
+    else    
+#endif
+    {
+    // read the pin state from the device because the isr() could have changed it ?
       Serial.write(pi); Serial.write(digitalRead(p.pin)); SerialWriteULong(p.tick);
     }
 #if defined(DEBUG)
@@ -2669,84 +3072,7 @@ void test_micros()
   Serial.print(F("micros : ")); Serial.print(t / 100); Serial.print(F(EOL));
 }
 
-int  init_input();
-int  read_input();
-void process_input();
-
-void setup()
-{
-  // Serial port initialization
-  init_input();
-
-  // welcome text
-  Serial.print(FS(title)); Serial.print(MODEL); Serial.print(F(".")); Serial.print(REVISION); Serial.print(F(".")); Serial.print(VERSION); Serial.print(F(EOL));
-  Serial.print(F("enter ? to see available commands" EOL));
-  
-  // EERPROM sanity check
-  if (EEPROM_USAGE > EEPROM_SIZE) {
-    Serial.print(F("EEPROM usage ")); Serial.print(EEPROM_USAGE); Serial.print(F(" exceeds size ")); Serial.print(EEPROM_SIZE); Serial.print(F(EOL));
-    byte len = PINSIZE;
-    Serial.print(F("pin  memory size: ")); Serial.print(len);
-    len = TASKSIZE;
-    Serial.print(F("task memory size: ")); Serial.print(len); Serial.print(F(EOL));
-  }
-#if defined(EX_EEPROM_ADDR)
-  eeprom.init(EX_EEPROM_ADDR, EX_EEPROM_SIZE);
-#endif
-
-  // test micrros and interrupts
-#if defined(DEBUG)  
-  if (verbose > 0) {
-    test_micros();
-    test_interrupts();
-  }
-#endif
-
-  // timer
-  Timer1.initialize();
-  Timer1.stop();
-  Timer1.attachInterrupt(timer_interrupt_callback);
-
-  init_vars();
-
-  // button actions on boot: 1 second press: HALT, 5 second press: RESEST
-#ifdef BUTTON_PIN
-  pinMode(BUTTON_PIN, INPUT_PULLUP);
-  halt = !digitalRead(BUTTON_PIN);
-  if (halt) {
-    // wait one second if the button is still pressed
-    byte pressed;
-    unsigned long start_tick = millis();
-    while (pressed = !digitalRead(BUTTON_PIN)) {
-      if (!pressed) break;
-      unsigned long period = millis() - start_tick;
-      if (period > 5000) break;
-#ifdef RED_LED_PIN
-      if (!(period % 500)) {
-        unsigned long count = period / 500;
-        if (count == 1) {
-          pinMode(RED_LED_PIN, OUTPUT);
-        }
-        digitalWrite(RED_LED_PIN, !(count % 2));
-      }
-#endif      
-    }
-    if (pressed) {
-      Serial.print("pin and task definitions reset to factory default because button pin is pressed 5 seconds" EOL);
-      cmd_reset(0, 0, NULL);
-      halt = 0;
-    }
-  }
-#endif
-
-  // actions
-  reset_pin_states(0, -1);
-  if (!halt) {
-    arm_tasks(0, -1);
-  } else {
-    Serial.print("task executing halted because button pin is pressed during startup" EOL);
-  }
-}
+// setup
 
 void cmd_reset(byte cmd_index, byte argc, char**argv)
 {
@@ -2802,12 +3128,13 @@ char * input_command;
 #define MAX_ARG_COUNT 16
 char * argv[MAX_ARG_COUNT];
 byte   argc = 0;
-char buf[INPUT_SIZE];
+//char buf[INPUT_SIZE];
 char prev_c = -1;
 
 int init_input()
 {
   Serial.begin(BAUD_RATE);
+  while (!Serial && (millis() < 2100)) {}
   return 0;
 }
 
@@ -3060,23 +3387,7 @@ void report_changes2()
   }
 }
 
-void loop()
-{
-  // check if data has been sent from the computer:
-  if (Serial.available())
-  {
-    if (read_input())
-    {
-      process_input();
-    }
-  }
-  check_input_pins();
-  tick_tasks();
-  check_finished_tasks();
-#if defined(DEBUG)  
-  if (verbose) report_changes2();
-#endif
-}
+// loop
 
 unsigned long atoul(char * s)
 {
@@ -3200,7 +3511,7 @@ unsigned long parse_byte(const char * s)
   return v;
 }
 
-byte parse_enum(const char *s, const char ** e)
+byte parse_enum(const char *s, const char * const * e)
 {
   for (byte i = 0; e[i] ; ++i)
   {
@@ -3253,6 +3564,11 @@ byte parse_options(const char * s, const char *info)
 }
 
 #if defined(DEBUG)
+#if defined(ARDUINO_FSP)
+void print_free_memory(int line)
+{
+}
+#else // AVR
 extern void *__brkval;
 extern void *__bss_end;
 void print_free_memory(int line)
@@ -3264,6 +3580,7 @@ void print_free_memory(int line)
     free_memory = ((int)&free_memory) - ((int)__brkval);
   Serial.print(F("free memory on line ")); Serial.print(line); Serial.print(F(" : ")); Serial.print(free_memory); Serial.print(F(EOL));
 }
+#endif
 #endif
 
 const char * find_index_key(char key[MAX_KEY_SIZE], const char * keys, byte index)

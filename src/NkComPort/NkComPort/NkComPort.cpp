@@ -683,8 +683,8 @@ const wchar_t * szStopBits[3] = { L"1",L"1.5",L"2"};
 void SNkComPort::ParseOptions(const wchar_t * options)
 {
 	int i;
-	const wchar_t * p = wcschr(options,L':');
-	if(!p) return;
+	const wchar_t * p = wcspbrk(options,L":\t\n ");
+	if(!p || (*p != L':')) return;
 	++p;
 	long    br = -1; // baudrate
 	wchar_t pa = -1; // parity
@@ -863,6 +863,8 @@ BOOL FindComPort(wchar_t * name)
 	return port_count;
 }
 
+#if _MSC_VER > 1500
+
 NKCOMPORT_API NkComPort_ListPorts(wchar_t * buffer, long buf_size)
 {
 	HKEY hRootKey = HKEY_LOCAL_MACHINE;
@@ -906,6 +908,8 @@ NKCOMPORT_API NkComPort_ListPorts(wchar_t * buffer, long buf_size)
 	}
 	return port_count;
 }
+
+#endif
 
 long wcsrpl(wchar_t * str, wchar_t c1, wchar_t c2)
 {
@@ -1750,11 +1754,9 @@ NKCOMPORT_API NkComPort_ListPortsEx(wchar_t* buffer, long buf_size)
 				if (p) *p = 0;
 			}
 			//MessageBox(NULL, friendlyName, L"friendlyName", MB_OK);
-
+/*
 			wchar_t hwIds[MAX_PATH];
 			SetupDiGetDeviceRegistryProperty(hDevInfo, &DeviceInfoData, SPDRP_HARDWAREID, 0L, (PBYTE)hwIds, MAX_PATH, &dwRequiredSize);
-			DWORD dwVid = -1;
-			DWORD dwPid = -1;
 			wchar_t* p = wcsstr(hwIds, L"VID");
 			if (p)
 			{
@@ -1763,7 +1765,53 @@ NKCOMPORT_API NkComPort_ListPortsEx(wchar_t* buffer, long buf_size)
 				wcsrpl(vidPid, L'&', L' ');
 				wcsrpl(vidPid, L'+', L' ');
 			}
-	
+*/
+			wchar_t devInstId[MAX_PATH];
+			DEVPROPTYPE devInstIdType;
+			DWORD dwInstIdLen = MAX_PATH;
+			if (SetupDiGetDeviceProperty(hDevInfo, &DeviceInfoData, &DEVPKEY_Device_InstanceId, &devInstIdType, (BYTE*)devInstId, MAX_PATH, &dwInstIdLen, 0))
+			{
+				DWORD VID = -1, PID = -1, REV = -1, MI = -1;
+				wchar_t* p;
+				wchar_t* sn = NULL;
+				p = wcsstr(devInstId, L"VID_");
+				if (p) { swscanf_s(p + 4, L"%lX", &VID); sn = wcschr(p, '\\'); }
+				p = wcsstr(devInstId, L"PID_");
+				if (p) swscanf_s(p + 4, L"%lX", &PID);
+				p = wcsstr(devInstId, L"REV_");
+				if (p) swscanf_s(p + 4, L"%lX", &REV);
+				p = wcsstr(devInstId, L"MI_");
+				if (p) swscanf_s(p + 4, L"%lX", &MI);
+
+				swprintf_s(vidPid, MAX_PATH, L"VID:%04lX PID:%04lX", VID, PID);
+				p = vidPid + wcslen(vidPid);
+				if (REV != -1)
+				{
+					swprintf_s(p, MAX_PATH - (p - vidPid), L" REV:%04lX", REV);
+					p = vidPid + wcslen(vidPid);
+				}
+				p = vidPid + wcslen(vidPid);
+				wchar_t parent[MAX_PATH];
+				if (MI != -1)
+				{
+					DEVPROPTYPE type;
+					if (SetupDiGetDeviceProperty(hDevInfo, &DeviceInfoData, &DEVPKEY_Device_Parent, &type, (BYTE*)parent, MAX_PATH, &dwRequiredSize, 0))
+					{
+						wchar_t * q = wcschr(parent, L'\\');
+						if(q) q = wcschr(q + 1, L'\\');
+						if (q)
+						{
+							sn = q;
+						}
+					}
+				}
+				if (sn)
+				{
+					swprintf_s(p, MAX_PATH - (p - vidPid), L" SN:%s", sn + 1);
+				}
+			}
+
+#if 0 // defined(DEBUG
 			long port = -1;
 			SetupDiGetDeviceRegistryProperty(hDevInfo, &DeviceInfoData, SPDRP_ADDRESS, 0L, (PBYTE)&port, sizeof(port), &dwRequiredSize);
 			//wchar_t tmp[64];
@@ -1889,7 +1937,7 @@ NKCOMPORT_API NkComPort_ListPortsEx(wchar_t* buffer, long buf_size)
 					free(szDevDescr);
 				}
 			}
-
+#endif
 			// print the strings to the buffer
 			if (portName[0])
 			{
@@ -2176,7 +2224,11 @@ size_t get_next_port(wchar_t * port, long cnt, wchar_t * & p, int tabs = 3)
 void CComPortSelectDialog::FillPortCombo()
 {
 	HWND hCtrl;
+#if _MSC_VER <= 1500
+	long port_count = NkComPort_ListPorts(ports, countof(ports));
+#else
 	long port_count = NkComPort_ListPortsEx(ports, countof(ports));
+#endif
 
 	wchar_t port[MAX_PORT_NAME];
 	wchar_t * p = ports;

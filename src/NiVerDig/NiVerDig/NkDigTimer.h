@@ -200,6 +200,7 @@ public:
     wxString      m_profileName;
     wxFileConfig* m_profile;
     wxString      m_portName;
+    wxString      m_lastPortName;
     NKCOMPORT*    m_port;
 
     wxPanel*      m_panel;
@@ -212,6 +213,13 @@ public:
     wxLogFile       m_log;
     wxIndexTextFile m_ilog;
 
+    HDEVNOTIFY      dev_notify;
+
+    WXLRESULT MSWWindowProc(WXUINT message, WXWPARAM wParam, WXLPARAM lParam)
+    {
+        if (message == WM_DEVICECHANGE) return OnDeviceChange(wParam, lParam);
+        return formMain::MSWWindowProc(message, wParam, lParam);
+    }
     void SetTitle(wxString port, wxString answer);
     bool IsConnected();
     void ParseItems(wxString command, SItems& items);
@@ -244,6 +252,7 @@ private:
     wxDECLARE_EVENT_TABLE();
     void OnMenuCommandPort(wxCommandEvent& evt);
     void OnMenuCommandUpload(wxCommandEvent& evt);
+    LRESULT OnDeviceChange(WPARAM wParam, LPARAM lParam);
     void m_toolPortOnAuiToolBarToolDropDown(wxAuiToolBarEvent& event);
     void m_toolControlOnToolClicked(wxCommandEvent& event);
     void m_toolPinsOnToolClicked(wxCommandEvent& event);
@@ -256,7 +265,8 @@ private:
     void StoreSettings();
     void RestoreSettings();
 
-    bool ShowPanel(int panel, bool refresh);
+    bool ShowPanel(int panel, bool refresh, bool allow_veto = true);
+    void RegisterDeviceEventNotifications();
 };
 
 size_t GetCurrentTimeInMs();
@@ -272,5 +282,5 @@ wxPanel* CreateScopePanel(frameMain* parent, wxString file, EMODE mode);
 class nkDigTimPanel
 {
 public:
-    virtual bool CanClosePanel(wxFrame * frame) = 0;
+    virtual bool CanClosePanel(wxFrame * frame, bool allow_veto) = 0;
 };

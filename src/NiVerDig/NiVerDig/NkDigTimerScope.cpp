@@ -250,10 +250,10 @@ public:
 		}
 	}
 
-	bool CanClosePanel(wxFrame * mainFrame)
+	bool CanClosePanel(wxFrame * mainFrame, bool allow_veto)
 	{
 		// if the window is miminized, assume closure is initiated by windows shut down or deliberite termination of the application.
-		if (m_thread && !mainFrame->IsIconized())
+		if (allow_veto && m_thread && !mainFrame->IsIconized())
 		{
 			int answer = wxMessageBox(wxT("Data capture is active: do you want to stop this ?"), wxMessageBoxCaptionStr, wxOK | wxCANCEL);
 			if (answer == wxCANCEL)

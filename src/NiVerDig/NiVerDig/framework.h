@@ -55,6 +55,7 @@
 
 #include <wx/msw/private.h>
 #include <shellapi.h>
+#include <winioctl.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -103,5 +104,4 @@ enum EMODE { MODE_CONTROL, MODE_VIEW, MODE_RECORD};
 
 void GetAllPortsInfo(std::map<wxString, wxString>& ports);
 wxString GetPortInfo(std::map<wxString, wxString>& ports, wxString port);
-wxString FindKnownVidPid(wxString);
 

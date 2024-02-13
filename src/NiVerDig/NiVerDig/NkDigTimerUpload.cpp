@@ -1,13 +1,15 @@
 #include "framework.h"
 
 frameUploadSketch::frameUploadSketch(frameMain* main)
-	: formUploadSketch(main)
-	, m_main(main)
+    : formUploadSketch(main)
+    , m_main(main)
     , m_process(NULL)
-    , m_updateTimer(this,100)
+    , m_updateTimer(this, 100)
     , m_closeTimer(this, 101)
 {
     UpdateComPorts();
+    UpdateHexFile();
+
 }
 
 frameUploadSketch::~frameUploadSketch()
@@ -16,32 +18,111 @@ frameUploadSketch::~frameUploadSketch()
 }
 
 wxBEGIN_EVENT_TABLE(frameUploadSketch, formUploadSketch)
-EVT_END_PROCESS(wxID_ANY, frameUploadSketch::OnProcessTerminate)
-EVT_TIMER(100,frameUploadSketch::OnUpdateTimer)
+EVT_END_PROCESS(1, frameUploadSketch::OnProcessTerminate)
+EVT_TIMER(100, frameUploadSketch::OnUpdateTimer)
 EVT_TIMER(101, frameUploadSketch::OnCloseTimer)
 wxEND_EVENT_TABLE()
+
+bool ParseDFU(wxString info, arduinoDevice & device)
+{
+    // Found Runtime: [2341:0069] ver=0100, devnum=3, cfg=1, intf=2, path="2-1", alt=0, name="DFU-RT Port", serial="35020F0C39313631F55533324B572D76"
+    wxRegEx re(wxT("Found (Runtime|DFU): \\[([a-fA-F0-9]+):([a-fA-F0-9]+)\\].+devnum=(\\d+).+name=\"([^\"]+)\".+serial=\"([a-fA-F0-9]+)\""));
+    if (!re.Matches(info)) return false;
+    unsigned long vid = 0, pid = 0, dev_num;
+    re.GetMatch(info, 2).ToULong(&vid, 16);
+    re.GetMatch(info, 3).ToULong(&pid, 16);
+    re.GetMatch(info, 4).ToULong(&dev_num);
+    device.vid_pid = wxString::Format(wxT("%04lX:%04lX"), vid, pid);
+    device.dev_num = wxString::Format(wxT("%ld"), dev_num);
+    wxString name = re.GetMatch(info, 5);
+    device.sn = re.GetMatch(info, 6);
+    SVID_PID* vid_pid = FindKnownVidPid(vid, pid);
+    if (vid_pid)
+    {
+        device.name = vid_pid->desc;
+    }
+    else
+    {
+        device.name = name;
+    }
+    device.port = wxString::Format(wxT("DFU device %ld"), dev_num);
+    return true;
+}
+
+bool arduinoDevices::Add(arduinoDevice& device)
+{
+    // check if this port is already present
+    arduinoDevices::const_iterator i = find(device.port);
+    if (i != end())
+    {
+        return false;
+    }
+
+    // check if this device is already present
+    if (device.vid_pid.length() && device.sn.length())
+    {
+        for (auto & i : *this)
+        {
+            arduinoDevice& d = i.second;
+            if ((d.vid_pid == device.vid_pid) && (d.sn == device.sn))
+            {
+                if (!d.dev_num.length()) d.dev_num = device.dev_num;
+                return false;
+            }
+        }
+    }
+
+    Insert(device);
+    return true;
+}
+
 
 void frameUploadSketch::UpdateComPorts()
 {
 	wxString curSel = m_comboPort->GetValue();
-    int space = curSel.Find(wxT(' '));
+    int space = curSel.Find(wxT('\t'));
     if(space != wxNOT_FOUND) curSel = curSel.Left(space);
     curSel.MakeUpper();
+
     m_comboPort->Clear();
-
-    GetAllPortsInfo(m_ports);
-
     int curIndex = -1;
-    for (auto i : m_ports)
+
+    m_devices.clear();
+
+    // add COM port devices
+    std::map<wxString, wxString> ports;
+    GetAllPortsInfo(ports);
+    for (auto i : ports)
     {
         wxString port = i.first;
-        wxString info = FindKnownVidPid(i.second);
-        m_comboPort->Append(port + wxT(" ") + info);
-        if (!port.Cmp(curSel)) curIndex = m_comboPort->GetCount() - 1;
+        arduinoDevice device;
+        device.port = port;
+        wxString info = FindKnownVidPid(i.second, &device);
+        if (m_devices.Add(device))
+        {
+            m_comboPort->Append(port + wxT("\t ") + info);
+            if (!port.Cmp(curSel)) curIndex = m_comboPort->GetCount() - 1;
+        }
     }
+
+    // add DFU devices
+    wxString command = wxString::Format(wxT("\"%s\\dfu-util.exe\" --list"), wxFileName(wxStandardPaths::Get().GetExecutablePath()).GetPath());
+    wxProcess process(wxPROCESS_REDIRECT);
+    wxExecute(command, wxEXEC_SYNC, &process);
+    wxTextInputStream tis(*process.GetInputStream());
+    while (!tis.GetInputStream().Eof())
+    {
+        wxString line = tis.ReadLine();
+        arduinoDevice device;
+        if(ParseDFU(line,device) && m_devices.Add(device))
+        {
+            m_comboPort->Append(device.port + wxT("\t ") + device.name);
+            if (!device.port.Cmp(curSel)) curIndex = m_comboPort->GetCount() - 1;
+        }
+    }
+
     if (curIndex == -1) curIndex = 0;
     m_comboPort->Select(curIndex);
-    UpdateHexFile();
 }
 
 void frameUploadSketch::UpdateHexFile()
@@ -50,8 +131,10 @@ void frameUploadSketch::UpdateHexFile()
     wxString model;
     int iModel = 0;
     curPort.MakeLower();
-    if (curPort.Find(wxT("uno")) != wxNOT_FOUND) { model = wxT("uno"); iModel = 1;  }
-    if (curPort.Find(wxT("mega")) != wxNOT_FOUND) { model = wxT("mega"); iModel = 2; }
+    if (curPort.Find(wxT("uno r3")) != wxNOT_FOUND) { model = wxT("unoR3"); iModel = 1;  }
+    if (curPort.Find(wxT("mega 2560 r3")) != wxNOT_FOUND) { model = wxT("megaR3"); iModel = 2; }
+    if (curPort.Find(wxT("uno r4 minima")) != wxNOT_FOUND) { model = wxT("unoR4Minima"); iModel = 3; }
+    if (curPort.Find(wxT("uno r4 wifi")) != wxNOT_FOUND) { model = wxT("unoR4WiFi"); iModel = 4; }
     m_choiceBoard->SetSelection(iModel);
     m_choiceBoard->Enable(model.IsEmpty());
 
@@ -66,11 +149,12 @@ void frameUploadSketch::UpdateHexFile()
         folder = wxFileName(wxStandardPaths::Get().GetExecutablePath()).GetPath();
     }
     wxArrayString hexFiles;
-    wxDir::GetAllFiles(folder, &hexFiles, wxString::Format(wxT("*.%s.ino.hex"),model), wxDIR_FILES);
+    wxString mask = wxString::Format(iModel > 2 ? wxT("*.%s.ino.bin") : wxT("*.%s.ino.hex"), model);
+    wxDir::GetAllFiles(folder, &hexFiles, mask, wxDIR_FILES);
     if (!hexFiles.size())
     {
         folder = wxFileName(wxStandardPaths::Get().GetExecutablePath()).GetPath();
-        wxDir::GetAllFiles(folder, &hexFiles, wxString::Format(wxT("*.%s.ino.hex"), model), wxDIR_FILES);
+        wxDir::GetAllFiles(folder, &hexFiles, mask, wxDIR_FILES);
     }
     for (auto file : hexFiles)
     {
@@ -81,7 +165,6 @@ void frameUploadSketch::UpdateHexFile()
 
     m_buttonStart->Enable(!curHex.GetName().IsEmpty() && m_choiceBoard->GetSelection());
 }
-
 
 void frameUploadSketch::m_comboPortOnCombobox(wxCommandEvent& event) 
 { 
@@ -125,26 +208,53 @@ void frameUploadSketch::m_buttonStartOnButtonClick(wxCommandEvent& event)
 void frameUploadSketch::StartUpload()
 {
     wxString port = m_comboPort->GetValue();
-    int space = port.Find(wxT(' '));
-    if (space != wxNOT_FOUND) port = port.Left(space);
-    m_port = port;
+    int tab = port.Find(wxT('\t'));
+    if (tab != wxNOT_FOUND) m_port = port.Left(tab);
+    else m_port = port;
+    arduinoDevices::iterator i = m_devices.find(m_port);
+    if (i == m_devices.end()) return;
+    arduinoDevice& device = i->second;
 
-    if (!m_main->m_portName.CmpNoCase(port))
+    if (!m_main->m_portName.CmpNoCase(m_port))
     {
         m_main->SetPort(wxEmptyString);
     }
     wxFileName f(wxStandardPaths::Get().GetExecutablePath());
     wxString folder = f.GetPath();
-    wxString args;
-    switch (m_choiceBoard->GetSelection())
-    {
-    case 1: args = wxT(" -patmega328p -carduino"); break;
-    case 2: args = wxT("-patmega2560 -cwiring"); break;
-    default: return;
-    }
     wxString hex = m_fileSketch->GetFileName().GetFullPath();
+    int iBoard = m_choiceBoard->GetSelection();
 
-    wxString command = wxString::Format(wxT("\"%s\\avrdude.exe\" -C\"%s\\avrdude.conf\" -v %s -P%s  -b115200 -D -Uflash:w:\"%s\":i"),folder, folder, args, port, hex);
+    wxString command;
+    if ((iBoard == 1) || (iBoard == 2))
+    {
+        wxString args;
+        switch (iBoard)
+        {
+        case 1: args = wxT(" -patmega328p -carduino"); break;
+        case 2: args = wxT("-patmega2560 -cwiring"); break;
+        default: return;
+        }
+        command = wxString::Format(wxT("\"%s\\avrdude.exe\" -C\"%s\\avrdude.conf\" -v -V %s -P%s  -b115200 -D -Uflash:w:\"%s\":i"), folder, folder, args, m_port, hex);
+    }
+    else // R4 Minima or WiFi
+    {
+        wxString vid_pid;
+        switch (iBoard)
+        {
+        case 3: vid_pid = wxT("0x2341:0x0069,:0x0369"); break;
+        case 4: vid_pid = wxT("0x2341:0x1002,:0x006D"); break;
+        }
+        wxString devnum = device.dev_num;
+        if (devnum.length())
+        {
+            command = wxString::Format(wxT("\"%s\\dfu-util.exe\" --device %s --devnum %s -D \"%s\" -a0 -Q"), folder, vid_pid, devnum, hex);
+        }
+        if(!command.length())
+        {
+            // assume there is only one Uno R4 connected ?
+            command = wxString::Format(wxT("\"%s\\dfu-util.exe\" --device %s -D \"%s\" -a0 -Q"), folder, vid_pid, hex);
+        }
+    }
 
     m_process = new wxProcessExecute(this, 1, wxPROCESS_REDIRECT | wxEVT_END_PROCESS);
     m_process->Execute(command);
@@ -170,10 +280,9 @@ void frameUploadSketch::OnProcessTerminate(wxProcessEvent& event)
     delete m_process;
     m_process = NULL;
     m_buttonStart->SetLabel(wxT("Start"));
-    if (!result && m_main->m_portName.IsEmpty())
+    if (!result)
     {
-        m_main->SetPort(m_port);
-        m_closeTimer.Start(1000, true);
+        m_closeTimer.Start(2000, true);
     }
 }
 
@@ -215,5 +324,9 @@ void frameUploadSketch::ReadProcessOutput()
 
 void frameUploadSketch::OnCloseTimer(wxTimerEvent& event)
 {
+    if (!m_port.IsEmpty() && m_main->m_portName.IsEmpty())
+    {
+        m_main->SetPort(m_port);
+    }
     EndModal(wxOK);
 }

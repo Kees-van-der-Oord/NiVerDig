@@ -20,6 +20,34 @@ public:
 	}
 };
 
+struct SVID_PID
+{
+	unsigned long vid;
+	unsigned long pid;
+	const wchar_t desc[64];
+};
+
+class arduinoDevice
+{
+public:
+	wxString port;    // for devices that support upload throught he COM port
+	wxString vid_pid; // for all devices
+	wxString sn;      // for all devices
+	wxString dev_num; // for DFU devices
+	wxString name;    // friendly name
+};
+
+SVID_PID* FindKnownVidPid(unsigned long vid, unsigned long pid);
+wxString FindKnownVidPid(wxString, arduinoDevice* device = NULL);
+
+
+class arduinoDevices : public std::map<wxString,arduinoDevice>
+{
+public: 
+	bool Add(arduinoDevice& device);
+	void Insert(arduinoDevice& device) { insert(std::pair<wxString, arduinoDevice>(device.port, device)); }
+};
+
 class frameUploadSketch : public formUploadSketch
 {
 public:
@@ -42,7 +70,8 @@ public:
 	void ReadProcessOutput();
 
 	frameMain* m_main;
-	std::map<wxString, wxString> m_ports;
+	//std::map<wxString, wxString> m_ports;
+	arduinoDevices m_devices;
 	wxString m_port;
 	wxString m_hex;
 	wxProcessExecute* m_process;
