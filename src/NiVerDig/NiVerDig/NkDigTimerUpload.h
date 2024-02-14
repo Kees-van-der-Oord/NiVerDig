@@ -59,10 +59,12 @@ public:
 	void StartUpload();
 	void StopUpload();
 	
+	void m_BrowseOnButtonClick(wxCommandEvent& event);
 	void m_comboPortOnCombobox(wxCommandEvent& event);
 	void m_comboPortOnComboboxDropdown(wxCommandEvent& event);
 	void m_choiceBoardOnChoice(wxCommandEvent& event);
-	void m_fileSketchOnFileChanged(wxFileDirPickerEvent& event);
+	wxString GetSketch();
+	int GetModel(wxString& mask);
 	void m_buttonStartOnButtonClick(wxCommandEvent& event);
 	void OnProcessTerminate(wxProcessEvent& event);
 	void OnUpdateTimer(wxTimerEvent& event);

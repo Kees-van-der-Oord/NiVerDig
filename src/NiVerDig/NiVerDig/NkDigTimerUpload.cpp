@@ -125,45 +125,106 @@ void frameUploadSketch::UpdateComPorts()
     m_comboPort->Select(curIndex);
 }
 
-void frameUploadSketch::UpdateHexFile()
+int frameUploadSketch::GetModel(wxString& mask)
 {
     wxString curPort = m_comboPort->GetValue();
     wxString model;
     int iModel = 0;
     curPort.MakeLower();
-    if (curPort.Find(wxT("uno r3")) != wxNOT_FOUND) { model = wxT("unoR3"); iModel = 1;  }
+    if (curPort.Find(wxT("uno r3")) != wxNOT_FOUND) { model = wxT("unoR3"); iModel = 1; }
     if (curPort.Find(wxT("mega 2560 r3")) != wxNOT_FOUND) { model = wxT("megaR3"); iModel = 2; }
     if (curPort.Find(wxT("uno r4 minima")) != wxNOT_FOUND) { model = wxT("unoR4Minima"); iModel = 3; }
     if (curPort.Find(wxT("uno r4 wifi")) != wxNOT_FOUND) { model = wxT("unoR4WiFi"); iModel = 4; }
+    if (iModel)
+    {
+        mask = wxString::Format(iModel > 2 ? wxT("*.%s.ino.bin") : wxT("*.%s.ino.hex"), model);
+    }
+    return iModel;
+}
+
+void frameUploadSketch::UpdateHexFile()
+{
+    wxString mask;
+    int iModel = GetModel(mask);
     m_choiceBoard->SetSelection(iModel);
-    m_choiceBoard->Enable(model.IsEmpty());
+    m_choiceBoard->Enable(iModel > 0);
+    if (!iModel) return;
 
-    wxFileName curHex = m_fileSketch->GetFileName();
+    wxFileName curHex = GetSketch();
     wxString curHexName = curHex.GetName();
-    if (model.IsEmpty()) return;
-    if (curHexName.Find(model) != wxNOT_FOUND) return;
-
     wxString folder = curHex.GetPath();
     if (folder.IsEmpty())
     {
         folder = wxFileName(wxStandardPaths::Get().GetExecutablePath()).GetPath();
     }
     wxArrayString hexFiles;
-    wxString mask = wxString::Format(iModel > 2 ? wxT("*.%s.ino.bin") : wxT("*.%s.ino.hex"), model);
     wxDir::GetAllFiles(folder, &hexFiles, mask, wxDIR_FILES);
     if (!hexFiles.size())
     {
         folder = wxFileName(wxStandardPaths::Get().GetExecutablePath()).GetPath();
         wxDir::GetAllFiles(folder, &hexFiles, mask, wxDIR_FILES);
     }
-    for (auto file : hexFiles)
+    m_sketch->Clear();
+    if(hexFiles.size())
     {
-        curHex = wxFileName(file);
-        m_fileSketch->SetFileName(curHex);
-        break;
+        int iCurSel = hexFiles.size() - 1;
+        for (int i = 0; i < hexFiles.size(); ++i)
+        {
+            wxString& file = hexFiles[i];
+            m_sketch->Append(file);
+            if (curHexName == file)
+            {
+                iCurSel = i;
+            }
+        }
+        m_sketch->SetSelection(iCurSel);
     }
 
     m_buttonStart->Enable(!curHex.GetName().IsEmpty() && m_choiceBoard->GetSelection());
+}
+
+void frameUploadSketch::m_BrowseOnButtonClick(wxCommandEvent& event) 
+{ 
+    wxFileName hex = GetSketch();
+    wxString folder = hex.GetPath();
+    if (folder.IsEmpty())
+    {
+        folder = wxFileName(wxStandardPaths::Get().GetExecutablePath()).GetPath();
+    }
+    wxFileDialog dlg(
+        this,
+        wxT("Select compiled Arduino Sketch"),
+        hex.GetPath(),
+        wxEmptyString,
+        wxT("All Sketches|*ino*|Uno R3 Sketches|*.unoR3.ino.hex|Mega R3 Sketches|*.megaR3.ino.hex|Uno R4 Minima Sketches|*.unoR4Minima.ino.bin|Uno R4 WiFi Sketches|*.unoR4WiFi.ino.bin"),
+        wxFD_OPEN | wxFD_FILE_MUST_EXIST);
+
+    dlg.SetFilterIndex(m_choiceBoard->GetSelection());
+    if (!dlg.ShowModal()) return;
+
+    hex = dlg.GetPath();
+    folder = hex.GetPath();
+
+    wxString mask;
+    int iModel = GetModel(mask);
+    m_sketch->Clear();
+    wxArrayString hexFiles;
+    wxDir::GetAllFiles(folder, &hexFiles, mask, wxDIR_FILES);
+    if (hexFiles.size())
+    {
+        for (int i = 0; i < hexFiles.size(); ++i)
+        {
+            wxString& file = hexFiles[i];
+            m_sketch->Append(file);
+        }
+    }
+    int iCurSel = m_sketch->FindString(hex.GetFullPath());
+    if (iCurSel == wxNOT_FOUND)
+    {
+        iCurSel = m_sketch->Append(hex.GetFullPath());
+    }
+    m_sketch->SetSelection(iCurSel);
+    m_buttonStart->Enable(hex.IsOk() && hex.FileExists() && m_choiceBoard->GetSelection());
 }
 
 void frameUploadSketch::m_comboPortOnCombobox(wxCommandEvent& event) 
@@ -181,13 +242,15 @@ void frameUploadSketch::m_comboPortOnComboboxDropdown(wxCommandEvent& event)
 void frameUploadSketch::m_choiceBoardOnChoice(wxCommandEvent& event) 
 { 
     event.Skip(); 
-    m_buttonStart->Enable(!m_fileSketch->GetFileName().GetName().IsEmpty() && m_choiceBoard->GetSelection());
+    wxFileName hex(GetSketch());
+    m_buttonStart->Enable(hex.IsOk() && hex.FileExists() && m_choiceBoard->GetSelection());
 }
 
-void frameUploadSketch::m_fileSketchOnFileChanged(wxFileDirPickerEvent& event) 
-{ 
-	event.Skip(); 
-    m_buttonStart->Enable(!m_fileSketch->GetFileName().GetName().IsEmpty() && m_choiceBoard->GetSelection());
+wxString frameUploadSketch::GetSketch()
+{
+    int iCurSel = m_sketch->GetSelection();
+    if (iCurSel == wxNOT_FOUND) return wxEmptyString;
+    return m_sketch->GetString(iCurSel);
 }
 
 void frameUploadSketch::m_buttonStartOnButtonClick(wxCommandEvent& event) 
@@ -221,7 +284,7 @@ void frameUploadSketch::StartUpload()
     }
     wxFileName f(wxStandardPaths::Get().GetExecutablePath());
     wxString folder = f.GetPath();
-    wxString hex = m_fileSketch->GetFileName().GetFullPath();
+    wxString hex = GetSketch();
     int iBoard = m_choiceBoard->GetSelection();
 
     wxString command;
