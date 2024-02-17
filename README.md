@@ -3,9 +3,9 @@ NiVerDig: an Arduino-based Versatile Digital Timer, Controller and Scope
 
 ![image](https://user-images.githubusercontent.com/62476661/217346113-baf68a20-de2e-47ea-9914-61b89a9dc257.png)
 ## Introduction
-NiVerDig is a versatile digital signal controller scope based on an Arduino Uno or Mega board.  The NiVerDig Arduino Sketch allows flexible configuration of tasks that can be started and stopped by serial command or external digital input signals. When programmed, the NiVerDig can execute the tasks autonomously. When connected the PC the unit can be configured dynamically. The Scope mode allows recording the digital events to PC. A wxWidgets windows control program is available as a GUI front-end.
+NiVerDig is a versatile digital signal controller scope based on an Arduino Uno R3/R4 or Mega 2560 board. The NiVerDig Arduino Sketch allows flexible configuration of tasks that can be started and stopped by serial command or external digital input signals. When programmed, the NiVerDig can execute the tasks autonomously. When connected the PC the unit can be configured dynamically. The Scope mode allows recording the digital events to PC. A wxWidgets windows control program is available as a GUI front-end.
 
-Do you own an Arduino Uno or Mega that you would program with the NiVerDig sketch ? Install the [NiVerDig package](https://github.com/Kees-van-der-Oord/NiVerDig/releases); start the NiVerDig program and select 'Port | Upload NiVerDig Sketch to Uno/Mega'. If you don't own one yet, jump to the [Build your own NiVerDig](#build-your-own-niverdig) section to get inspired to build one. For users of the Nikon NIS-Elements microscope control program, there is a section [NIS macros](#nis-macro) with examples how to integrate control of the NiVerDig in NIS.
+Do you own an Arduino Uno R3/R4 or Mega 2560 R3 that you would program with the NiVerDig sketch ? Install the [NiVerDig package](https://github.com/Kees-van-der-Oord/NiVerDig/releases); start the NiVerDig program and select 'Port | Upload NiVerDig Sketch to Uno/Mega'. If you don't own one yet, jump to the [Build your own NiVerDig](#build-your-own-niverdig) section to get inspired to build one. For users of the Nikon NIS-Elements microscope control program, there is a section [NIS macros](#nis-macro) with examples how to integrate control of the NiVerDig in NIS.
 
 ## Control Panel
 The main page of the NiVerDig program is the Control Panel. The first dropdown button on the toolbar allows selecting the COM port of the NiVerDig Arduino board. After opening the port of the device, the Control Panel becomes active. If the connection fails, select ‘Upload NiVerDig Sketch to Uno/Mega’ to program the Arduino with the sketch. The Control panel shows all defined Pins on the top row and all defined Tasks on the bottom row.
@@ -22,14 +22,14 @@ The first icon on the task row is a red STOP button. Click on this button to hal
 Tasks can be ‘idle’ (sitting icon), ‘armed’ (‘on your mark’ icon)  or ‘running’ (running icon). The colored icon reflects the current state of each task. Click on the idle, arm or run icon to change the state of the task. An ‘idle’ task will not be started by a start trigger. After ‘Arm’ing the task, a start trigger will ‘start’ it. On completion of the task, it will become ‘idle’. The options ‘arm-on-startup’ and ‘arm-on-finish’ can be set to arm the task automatically on boot or task completion.
 
 ## Pins
-The Pins panel shows the definition of the NiVerDig logical pins. For each pin a ‘name’ is defined and the actual hardware pin they refer to. Pins can be in the input, pullup, output or adc mode. The ‘Pullup’ mode is an input mode in which the pin voltage is pulled up to 5V. Short cutting the pin to ground e.g. with a button will pull it down. For the ‘output’ mode, you must specify the initial state of the output pin. When the 'adc' mode is selected, the hardware pin number refers to an analog pin, e.g. A0 when '0' is selected.
+The Pins panel shows the definition of the NiVerDig logical pins. For each pin a 'Name' is defined and the actual hardware pin they refer to. Pins can be in the input, pullup, output or adc mode. The ‘Pullup’ mode is an input mode in which the pin voltage is pulled up to 5V. Short cutting the pin to ground e.g. with a button will pull it down. For the ‘output’ mode, you must specify the initial state of the output pin. When the 'adc' mode is selected, the hardware pin number refers to an analog pin, e.g. A0 when '0' is selected.
 Before setting the pin mode to ‘output’ you must check if the pin is not connected to another output, button or shortcutted to ground because the shortcut current can destroy the Arduino output port.
 The + and – buttons can be used to increase or decrease the number of logical pins. After changing the pin configuration, press ‘Send’ to apply the changes to the device. Pressing the ‘Save’ and ‘Load’ buttons save and load the pin configuration to text file. Tasks referring to the pins are not updated automatically for the changes in the pin definition. After any change, validate the definition of the tasks.
 
 ![image](https://user-images.githubusercontent.com/62476661/217346474-51fbb58d-27e4-44a1-996c-dc1b28ffbaa7.png)
 
 ## Tasks
-The tasks panel show 	all defined tasks. The + and – buttons can be used to change the number of tasks. ‘Send’ sends the task definition to the device. By default ‘Send’ will only update the current task definition in memory. Press the ‘Write’ button to save it to EEPROM.
+The tasks panel shows all defined tasks. The + and – buttons can be used to change the number of tasks. '�Send' sends the task definition to the device. By default ‘Send’ will only update the current task definition in memory. Press the ‘Write’ button to save it to EEPROM.
 
 ![image](https://user-images.githubusercontent.com/62476661/217347100-0b01af66-d210-47b5-a140-92857db927c7.png)
 
@@ -51,7 +51,7 @@ The fields accept the following values:
 |         | high:	a digital pulse on the destination pin starting high |
 |         | low:	a digital pulse on the destination pin starting low |
 |         | toggle:	toggle the destination pin state |
-|         | adc:	read the adc |
+|         | adc:	start the ADC conversion (on the R4 on all ADC pins)|
 |         | arm:	arm the destination task |
 |         | start:	start the destination task |
 |         | restart:	restart the destination task |
@@ -72,9 +72,10 @@ If a task that is started automatically is written to EEPROM that exceeds the Ar
 Reading an ADC pin takes 40 us. Sending the result through the serial port takes about the same time. Set the 'up' and 'down' time for an adc task 1ms or higher to prevent freezing the Arduino.
 
 ### interrupts
-The AVR chip is a single thread device. The main thread runs in a loop and checks the pins and tasks if action is required. The time for one loop is about 300 us. For this thread, the jitter (fault in timing) is about 300 to 600 us. Independently of the main thread, the chip features a thread that runs upon a hardware interrupt. Tasks can be configured to run on the interrupt thread using the ‘interrupts’ option. When the start trigger pin supports interrupts, the task is started with a lower delay and jitter: about 35 us delay and 4 us jitter. For interrupts tasks, the ticking of the task is paced by the chip timer with a high timing accuracy (4 us jitter). Note that there is only one interrupt thread: when two interrupt tasks have scheduled action at the same time, the actions will be executed in sequence, so one of them will be too late.
-The Arduino UNO has two pins that support interrupts: pin 2 and 3. 
-The Arduino Mega has 6 pins that support interrupts: pins 2, 3, 18, 19, 20, and 21.
+The Arduino setup() and loop() code runs on a single thread. The loop() function checks the pins and tasks if action is required. The time for one loop is about 300 us. For this thread, the jitter (fault in timing) is about 300 to 600 us. Independently of the main thread, the chip features a thread that runs upon a hardware interrupt. Tasks can be configured to run on the interrupt thread using the ‘interrupts’ option. When the start trigger pin supports interrupts, the task is started with a lower delay and jitter: about 35 us delay and 4 us jitter. For interrupts tasks, the ticking of the task is paced by the chip timer with a high timing accuracy (4 us jitter). Note that there is only one interrupt thread: when two interrupt tasks have scheduled action at the same time, the actions will be executed in sequence, so one of them will be too late.
+The Arduino Uno R3 has two pins that support interrupts: pin 2 and 3. 
+The Arduino Mega 2560 R3 has 6 pins that support interrupts: pins 2, 3, 18, 19, 20, and 21.
+The Arduino Uno
 
 ## Scope
 The Scope page allows capturing the state of the pins in time. All standard scope control features are available from the top toolbar. Press the On/Off on the left to start capture. As long capture is active, all events are recorded to disk and be browsed using the button arrows. Recordings can be saved permenantly in binary format or in two text formats (absolute timing and relative timing)
@@ -185,7 +186,7 @@ This picture show the recording when the red LED was pulsed and the light captur
 ![niverdig_analog_pulse](https://github.com/Kees-van-der-Oord/NiVerDig/assets/62476661/6812d2df-55bd-4353-897f-6767b6aa3ab9)
 
 
-## Arduino Serial Commands
+## Arduino NiVerDig Sketch Serial Commands
 The Arduino is accessed through a COM port. The ‘Console’ panel shows the text sent to and received from the device. Control of the device is also possible from other programs.
 Connection details: baud-rate 500000 bps, 8-bits, 1 stop bit, parity: none, flow-control: none, end-of-line character: newline
 | command | details |
@@ -258,7 +259,6 @@ On completion, the software will connect to the board:
 
 ![image](https://user-images.githubusercontent.com/62476661/217348060-23a32fc0-0d07-4b9a-be02-b7901bf8226c.png)
 
-	
 ## NIS Macro
 
 ### NiVerDig.mac
@@ -380,11 +380,11 @@ Uno R3 or Mega R3 ?
 The Mega has more dynamic memory, allowing more pin and task definitions.
 The capabilities of the Uno and Mega:
 
-|              | Uno R3 | Mega R3 |
+|              | Uno R3 | Mega 2560 R3 | Uno R4 |
 | ------------ | --- | ---- |
-| Frequency    | 16 MHz | 16 MHz |
-| pins supporting interrupts | 2: pins 2,3 | 6: pins 2,3,18,19,20,21 |
-| dynamic memory | 2048 bytes | 8192 bytes |
+| Frequency    | 16 MHz | 16 MHz | 48 MHz |
+| pins supporting interrupts | 2: pins 2,3 | 6: pins 2,3,18,19,20,21 | 14: all digital pins |
+| dynamic memory | 2048 bytes | 8192 bytes | 32767 bytes |
 | NiVerDig pin definitions | 4 | 52 |
 | NiVerDig task definitions | 8 | 52 |
 

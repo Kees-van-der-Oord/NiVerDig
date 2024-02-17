@@ -9,7 +9,6 @@ frameUploadSketch::frameUploadSketch(frameMain* main)
 {
     UpdateComPorts();
     UpdateHexFile();
-
 }
 
 frameUploadSketch::~frameUploadSketch()
@@ -75,7 +74,6 @@ bool arduinoDevices::Add(arduinoDevice& device)
     Insert(device);
     return true;
 }
-
 
 void frameUploadSketch::UpdateComPorts()
 {
@@ -155,13 +153,13 @@ void frameUploadSketch::UpdateHexFile()
     wxString folder = curHex.GetPath();
     if (folder.IsEmpty())
     {
-        folder = wxFileName(wxStandardPaths::Get().GetExecutablePath()).GetPath();
+        folder = wxFileName(wxStandardPaths::Get().GetExecutablePath()).GetPath() + wxT("\\hex");
     }
     wxArrayString hexFiles;
     wxDir::GetAllFiles(folder, &hexFiles, mask, wxDIR_FILES);
     if (!hexFiles.size())
     {
-        folder = wxFileName(wxStandardPaths::Get().GetExecutablePath()).GetPath();
+        folder = wxFileName(wxStandardPaths::Get().GetExecutablePath()).GetPath() + wxT("\\hex");
         wxDir::GetAllFiles(folder, &hexFiles, mask, wxDIR_FILES);
     }
     m_sketch->Clear();
@@ -178,6 +176,7 @@ void frameUploadSketch::UpdateHexFile()
             }
         }
         m_sketch->SetSelection(iCurSel);
+        curHex = m_sketch->GetString(iCurSel);
     }
 
     m_buttonStart->Enable(!curHex.GetName().IsEmpty() && m_choiceBoard->GetSelection());

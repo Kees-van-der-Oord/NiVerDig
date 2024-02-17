@@ -36,3 +36,5 @@
 /src/NiVerDig/wix/ProductVersion.wxi
 /src/NiVerDig/Sketch/.theia
 /src/NkComPort/NkComPortCon/x64/Debug
+*.odt#
+/src/NiVerDig/wix/ProductVersion.wxi

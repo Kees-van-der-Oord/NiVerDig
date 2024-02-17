@@ -20,6 +20,7 @@
 			<Directory Id="ProgramFiles64Folder">
 				<Directory Id="INSTALLFOLDER" Name="NiVerDig">
 					<Directory Id="resDir" Name="res"/>
+					<Directory Id="hexDir" Name="hex"/>
 				</Directory>
 				<Directory Id="ProgramMenuFolder">
 				<!--
@@ -31,21 +32,20 @@
 			</Directory>
 		</Directory>
 		<Component Id="mainComponent" Directory="INSTALLFOLDER" Guid="{8C09E078-966A-4CF9-9A73-384A09D3F60F}">
-			<File Id="main" Source="..\x64\release\NiVerDig.exe" KeyPath="yes">
+			<File Id="main" Source="..\..\x64\release\NiVerDig.exe" KeyPath="yes">
 				<Shortcut Id="StartMenuShortcut" Name="NiVerDig" Description="NiVerDig" Advertise="yes" Directory="ProgramMenuFolder" WorkingDirectory="INSTALLFOLDER" Icon="Product.ico" />
 			</File>
-			<File Id="NkComPortCon.exe" Source="..\x64\release\NkComPortCon.exe"/>
+			<File Id="NkComPortCon.exe" Source="..\..\x64\release\NkComPortCon.exe"/>
 			<File Id="NiVerDig.pdf" Source="..\Docs\NiVerDig.pdf"/>
-			<File Id="msvcp140.dll" Source="..\x64\release\msvcp140.dll"/>
-			<File Id="NkComPort.dll" Source="..\x64\release\NkComPort.dll"/>
-			<File Id="wxbase321u_vc_x64_custom.dll" Source="..\x64\release\wxbase321u_vc_x64_custom.dll"/>
-			<File Id="wxmsw321u_aui_vc_x64_custom.dll" Source="..\x64\release\wxmsw321u_aui_vc_x64_custom.dll"/>
-			<File Id="wxmsw321u_core_vc_x64_custom.dll" Source="..\x64\release\wxmsw321u_core_vc_x64_custom.dll"/>
-			<File Id="avrdude.exe" Source="..\x64\release\avrdude.exe"/>
-			<File Id="avrdude.conf" Source="..\x64\release\avrdude.conf"/>
-			<File Id="NiVerDig_36.mega.ino.hex" Source="..\Hex\NiVerDig_36.mega.ino.hex"/>
-			<File Id="NiVerDig_36.uno.ino.hex" Source="..\Hex\NiVerDig_36.uno.ino.hex"/>
-			<File Id="NiVerDig.mac" Source="..\macros\NiVerDig.mac"/>
+			<File Id="msvcp140.dll" Source="..\..\x64\release\msvcp140.dll"/>
+			<File Id="NkComPort.dll" Source="..\..\x64\release\NkComPort.dll"/>
+			<File Id="wxbase32u_vc14x_x64.dll" Source="..\..\x64\release\wxbase32u_vc14x_x64.dll"/>
+			<File Id="wxmsw32u_aui_vc14x_x64.dll" Source="..\..\x64\release\wxmsw32u_aui_vc14x_x64.dll"/>
+			<File Id="wxmsw32u_core_vc14x_x64.dll" Source="..\..\x64\release\wxmsw32u_core_vc14x_x64.dll"/>
+			<File Id="avrdude.exe" Source="..\..\x64\release\avrdude.exe"/>
+			<File Id="avrdude.conf" Source="..\..\x64\release\avrdude.conf"/>
+			<File Id="dfuutil.exe" Source="..\..\x64\release\dfu-util.exe"/>
+			<File Id="NiVerDig.mac" Source="..\..\macros\NiVerDig.mac"/>
 			<!--
 			<RemoveFolder Id="RemoveNiVerDigStartMenuFolder" Directory="NiVerDigStartMenuFolder" On="uninstall"/>
 			<RemoveFolder Id="RemoveNiVerDigMenuFolder" Directory="NiVerDigMenuFolder" On="uninstall"/>
@@ -54,6 +54,7 @@
 		<Feature Id="mainFeature">
 			<ComponentRef Id="mainComponent"/>
 			<ComponentGroupRef Id="cgResFiles"/>
+			<ComponentGroupRef Id="cgHexFiles"/>
 		</Feature>
 	</Product>
 </Wix>
