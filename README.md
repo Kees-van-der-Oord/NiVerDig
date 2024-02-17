@@ -477,5 +477,7 @@ The NiVerDig msi package can be build using the [WIX Toolset](https://wixtoolset
 	
 # Colofon
 Author: Kees van der Oord <Kees.van.der.Oord@inter.nl.net>
+
 Date: Feb 17, 2024
+
 Version: 38
