@@ -58,10 +58,10 @@ The fields accept the following values:
 |         | kick:	start the destination task if idle, stop if running. |
 |         | stop:	stop the destination task |
 | target  | destination pin or task (depending on the action) |
-| count   | number of iterations. One iteration consists of an â€˜upâ€™ action and a â€˜downâ€™ action. Specify a â€˜countâ€™ of 0 to execute only the â€˜upâ€™ action. Specify a â€˜countâ€™ of -1 for a continuous task. |
-| delay   | the period between the trigger and the first â€˜upâ€™ action. Without unit the delay is in microseconds. Add the â€˜msâ€™ or â€˜sâ€™ unit for milliseconds or seconds. |
-| up      | the period between the â€˜upâ€™ and â€˜downâ€™ actions. Without unit the delay is in microseconds. Add the â€˜msâ€™ or â€˜sâ€™ unit for milliseconds or seconds. |
-| down    | the period between the â€˜downâ€™ and â€˜upâ€™ actions. Without unit the delay is in microseconds. Add the â€˜msâ€™ or â€˜sâ€™ unit for milliseconds or seconds. |
+| count   | number of iterations. One iteration consists of an 'up' action and a 'down' action. Specify a 'count' of 0 to execute only the 'up' action. Specify a 'count' of -1 for a continuous task. |
+| delay   | the period between the trigger and the first 'up' action. Without unit the delay is in microseconds. Add the 'ms' or 's' unit for milliseconds or seconds. |
+| up      | the period between the 'up' and 'down' actions. Without unit the delay is in microseconds. Add the 'ms' or 's' unit for milliseconds or seconds. |
+| down    | the period between the 'down' and 'up' actions. Without unit the delay is in microseconds. Add the 'ms' or 's' unit for milliseconds or seconds. |
 | options | the options for this task: |
 |         | arm-on-startup:	arm the task automatically when the device boots |
 |         | arm-on-finish:	arm the task automatically when the task ends |
