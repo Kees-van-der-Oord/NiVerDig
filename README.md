@@ -19,17 +19,17 @@ The pin color tells the current state: green if  high (5V), black if low (0V). I
 The first icon on the task row is a red STOP button. Click on this button to halt all task. Click again to arm/start the tasks again. Note: if the NiVerDig has a physical button, hold this button for 1 second during power-up to halt all tasks and prevent starting any tasks automatically.
 
 ### tasks
-Tasks can be â€˜idleâ€™ (sitting icon), â€˜armedâ€™ (â€˜on your markâ€™ icon)  or â€˜runningâ€™ (running icon). The colored icon reflects the current state of each task. Click on the idle, arm or run icon to change the state of the task. An â€˜idleâ€™ task will not be started by a start trigger. After â€˜Armâ€™ing the task, a start trigger will â€˜startâ€™ it. On completion of the task, it will become â€˜idleâ€™. The options â€˜arm-on-startupâ€™ and â€˜arm-on-finishâ€™ can be set to arm the task automatically on boot or task completion.
+Tasks can be 'idle' (sitting icon), 'armed' ('on your mark' icon)  or 'running' (running icon). The colored icon reflects the current state of each task. Click on the idle, arm or run icon to change the state of the task. An 'idle' task will not be started by a start trigger. After 'Arming' the task, a start trigger will 'start' it. On completion of the task, it will become 'idle'. The options 'arm-on-startup' and 'arm-on-finish' can be set to arm the task automatically on boot or task completion.
 
 ## Pins
-The Pins panel shows the definition of the NiVerDig logical pins. For each pin a 'Name' is defined and the actual hardware pin they refer to. Pins can be in the input, pullup, output or adc mode. The â€˜Pullupâ€™ mode is an input mode in which the pin voltage is pulled up to 5V. Short cutting the pin to ground e.g. with a button will pull it down. For the â€˜outputâ€™ mode, you must specify the initial state of the output pin. When the 'adc' mode is selected, the hardware pin number refers to an analog pin, e.g. A0 when '0' is selected.
-Before setting the pin mode to â€˜outputâ€™ you must check if the pin is not connected to another output, button or shortcutted to ground because the shortcut current can destroy the Arduino output port.
-The + and â€“ buttons can be used to increase or decrease the number of logical pins. After changing the pin configuration, press â€˜Sendâ€™ to apply the changes to the device. Pressing the â€˜Saveâ€™ and â€˜Loadâ€™ buttons save and load the pin configuration to text file. Tasks referring to the pins are not updated automatically for the changes in the pin definition. After any change, validate the definition of the tasks.
+The Pins panel shows the definition of the NiVerDig logical pins. For each pin a 'Name' is defined and the actual hardware pin they refer to. Pins can be in the input, pullup, output or adc mode. The 'Pullup' mode is an input mode in which the pin voltage is pulled up to 5V. Short cutting the pin to ground e.g. with a button will pull it down. For the 'output' mode, you must specify the initial state of the output pin. When the 'adc' mode is selected, the hardware pin number refers to an analog pin, e.g. A0 when '0' is selected.
+Before setting the pin mode to 'output' you must check if the pin is not connected to another output, button or shortcutted to ground because the shortcut current can destroy the Arduino output port.
+The + and - buttons can be used to increase or decrease the number of logical pins. After changing the pin configuration, press 'Send' to apply the changes to the device. Pressing the 'Save' and 'Load' buttons save and load the pin configuration to text file. Tasks referring to the pins are not updated automatically for the changes in the pin definition. After any change, validate the definition of the tasks.
 
 ![image](https://user-images.githubusercontent.com/62476661/217346474-51fbb58d-27e4-44a1-996c-dc1b28ffbaa7.png)
 
 ## Tasks
-The tasks panel shows all defined tasks. The + and â€“ buttons can be used to change the number of tasks. '˜Send' sends the task definition to the device. By default â€˜Sendâ€™ will only update the current task definition in memory. Press the â€˜Writeâ€™ button to save it to EEPROM.
+The tasks panel shows all defined tasks. The + and - buttons can be used to change the number of tasks. 'Send' sends the task definition to the device. By default 'Send' will only update the current task definition in memory. Press the 'Write' button to save it to EEPROM.
 
 ![image](https://user-images.githubusercontent.com/62476661/217347100-0b01af66-d210-47b5-a140-92857db927c7.png)
 
@@ -62,20 +62,20 @@ The fields accept the following values:
 | delay   | the period between the trigger and the first â€˜upâ€™ action. Without unit the delay is in microseconds. Add the â€˜msâ€™ or â€˜sâ€™ unit for milliseconds or seconds. |
 | up      | the period between the â€˜upâ€™ and â€˜downâ€™ actions. Without unit the delay is in microseconds. Add the â€˜msâ€™ or â€˜sâ€™ unit for milliseconds or seconds. |
 | down    | the period between the â€˜downâ€™ and â€˜upâ€™ actions. Without unit the delay is in microseconds. Add the â€˜msâ€™ or â€˜sâ€™ unit for milliseconds or seconds. |
-|  options | the options for this task: |
-|          | arm-on-startup:	arm the task automatically when the device boots |
-|          | arm-on-finish:	arm the task automatically when the task ends |
-|          | interrupts:	start and tick the task using hardware interrupts |
+| options | the options for this task: |
+|         | arm-on-startup:	arm the task automatically when the device boots |
+|         | arm-on-finish:	arm the task automatically when the task ends |
+|         | interrupts:	start and tick the task using hardware interrupts |
 
 Notes:
-If a task that is started automatically is written to EEPROM that exceeds the Arduino speed capabilities, the NiVerDig will be unresponsive after boot. In that case hold the button for 1 seconds on boot to halt all tasks and update them. If that does not help, keep the button pressed for 5 seconds to reset all pin and task definitions to factory default.
+If a task that is started automatically is written to EEPROM that exceeds the Arduino speed capabilities, the NiVerDig will be unresponsive after boot. In that case hold the button for 1 second on boot to halt all tasks and update them. If that does not help, keep the button pressed for 5 seconds to reset all pin and task definitions to factory default.
 Reading an ADC pin takes 40 us. Sending the result through the serial port takes about the same time. Set the 'up' and 'down' time for an adc task 1ms or higher to prevent freezing the Arduino.
 
 ### interrupts
-The Arduino setup() and loop() code runs on a single thread. The loop() function checks the pins and tasks if action is required. The time for one loop is about 300 us. For this thread, the jitter (fault in timing) is about 300 to 600 us. Independently of the main thread, the chip features a thread that runs upon a hardware interrupt. Tasks can be configured to run on the interrupt thread using the â€˜interruptsâ€™ option. When the start trigger pin supports interrupts, the task is started with a lower delay and jitter: about 35 us delay and 4 us jitter. For interrupts tasks, the ticking of the task is paced by the chip timer with a high timing accuracy (4 us jitter). Note that there is only one interrupt thread: when two interrupt tasks have scheduled action at the same time, the actions will be executed in sequence, so one of them will be too late.
+The Arduino setup() and loop() code runs on a single thread. The loop() function checks the pins and tasks if action is required. The time for one loop is about 300 us. For this thread, the jitter (fault in timing) is about 300 to 600 us. Independently of the main thread, the chip features a thread that runs upon a hardware interrupt. Tasks can be configured to run on the interrupt thread using the 'interrupts' option. When the start trigger pin supports interrupts, the task is started with a lower delay and jitter: about 35 us delay and 4 us jitter. For interrupts tasks, the ticking of the task is paced by the chip timer with a high timing accuracy (4 us jitter). Note that there is only one interrupt thread: when two interrupt tasks have scheduled action at the same time, the actions will be executed in sequence, so one of them will be too late.
 The Arduino Uno R3 has two pins that support interrupts: pin 2 and 3. 
 The Arduino Mega 2560 R3 has 6 pins that support interrupts: pins 2, 3, 18, 19, 20, and 21.
-The Arduino Uno
+For the Arduino Uno R4 it is not clear to me which pins support interrupts.
 
 ## Scope
 The Scope page allows capturing the state of the pins in time. All standard scope control features are available from the top toolbar. Press the On/Off on the left to start capture. As long capture is active, all events are recorded to disk and be browsed using the button arrows. Recordings can be saved permenantly in binary format or in two text formats (absolute timing and relative timing)
@@ -88,11 +88,11 @@ The Console page shows the serial communication with the device. The text starti
 ![image](https://user-images.githubusercontent.com/62476661/217361085-0b6033dc-5474-4d90-b8db-9d76bab8ae64.png)
 
 ## Example 1: Camera Trigger started manually
-This example shows how to trigger a camera 100 times at 20 ms intervals. Pin â€˜BNC 1â€™ is an output pin.
-The â€˜upâ€™ time is 2 ms, the â€˜downâ€™ time is 18 ms, so the time between the triggers is 20 ms.
+This example shows how to trigger a camera 100 times at 20 ms intervals. Pin 'BNC 1' is an output pin.
+The 'up' time is 2 ms, the 'down' time is 18 ms, so the time between the triggers is 20 ms.
 ![image](https://user-images.githubusercontent.com/62476661/217347172-6349b9bd-6b29-4431-b1af-d6d77083b6b5.png)
 
-After defining the task and pressing â€˜Sendâ€™, select the  â€˜Controlâ€™ page and click on the running icon to start the task. The pulse pattern on BNC 1 shows a jitter of about 5 us:
+After defining the task and pressing 'Send', select the  'Control' page and click on the running icon to start the task. The pulse pattern on BNC 1 shows a jitter of about 5 us:
 
 ![image](https://user-images.githubusercontent.com/62476661/217347219-1d072ff6-c3ff-4403-96b2-600eb2239a20.png)
 ![image](https://user-images.githubusercontent.com/62476661/217347263-000415e9-e905-457b-9391-52797e4de67e.png)
@@ -105,7 +105,7 @@ This example shows how the camera trigger sequence can be started by pressing th
 
 ![image](https://user-images.githubusercontent.com/62476661/217347357-58717fd9-faad-4b79-b57d-af2ee3a17e31.png)
 
-After Sending this task definition to the device, activate the Scope panel, select the 500ms period and press the first button â€˜Recordâ€™ to start recording. Now press on the button on the device. The graphs will show that the button line goes low when the button is pressed, followed by the camera trigger pulses on the BNC 1 line:
+After Sending this task definition to the device, activate the Scope panel, select the 500ms period and press the first button 'Record' to start recording. Now press on the button on the device. The graphs will show that the button line goes low when the button is pressed, followed by the camera trigger pulses on the BNC 1 line:
 
 ![image](https://user-images.githubusercontent.com/62476661/217347396-5cc33cb9-4798-4f7b-8c37-4b4a11210671.png)
 
@@ -115,7 +115,7 @@ Pin BNC 1 is configured as input, pin BNC 2 is configured as output.
 
 ![image](https://user-images.githubusercontent.com/62476661/217347414-aca8b5b0-afa4-4753-8365-cf5a42ce7b02.png)
 
-On the Scope panel, press the T button to enable the trigger and select the â€˜BNC 1â€™ trigger source and the Normal trigger mode. Enable recording with the first button. The camera triggers sequence is generated on the BNC 2 as soon as the trigger on BNC 1 arrives:
+On the Scope panel, press the T button to enable the trigger and select the 'BNC 1' trigger source and the Normal trigger mode. Enable recording with the first button. The camera triggers sequence is generated on the BNC 2 as soon as the trigger on BNC 1 arrives:
 
 ![image](https://user-images.githubusercontent.com/62476661/217347468-720211e2-12e1-44f3-af27-2595d052dbf8.png)
 
@@ -125,7 +125,7 @@ The delay of the start by a pulse on a pin that supports interrupts is about 35 
 
 ## Example 4: Stimulation pulse synchronized with camera
 This example illustrates how to output a stimulation pulse synchronized with the camera. Without synchronization, a manually started application will occur with a random time difference with the camera frame. To synchronize it with the camera, NiVerDig delays the trigger until the next camera frame detected.
-Two tasks are defined: the â€˜armâ€™ task is triggered by pushing the button. This task â€˜armsâ€™ the â€˜trigâ€™ task. After the â€˜trigâ€™ task is armed, it will started by the next camera sync and outputs the stimulation trigger with the specified delay. Note that the â€˜armâ€™ task has the automatic arm options set, but the â€˜trigâ€™ task not: it should by â€˜idleâ€™ and ignore the camera syncs until â€˜armedâ€™ by the button.
+Two tasks are defined: the 'arm' task is triggered by pushing the button. This task 'arms' the 'trig' task. After the 'trig' task is armed, it will started by the next camera sync and outputs the stimulation trigger with the specified delay. Note that the 'arm' task has the automatic arm options set, but the 'trig' task not: it should by 'idle' and ignore the camera syncs until 'armed' by the button.
 
 ![image](https://user-images.githubusercontent.com/62476661/217347517-8720263c-715d-407b-8b74-52ba228b9915.png)
 ![image](https://user-images.githubusercontent.com/62476661/217347535-4e25077c-7a30-4060-9723-628e618192cb.png)
@@ -133,18 +133,18 @@ Two tasks are defined: the â€˜armâ€™ task is triggered by pushing the b
 
 ## Example 5: send camera trigger when wheel is on position
 This example illustrates how to send the next trigger to the camera when a filter wheel is on position.
-The pin â€˜cam trigâ€™ is configured as output and connected to the camera.
-The pin â€˜whe moveâ€™ is configured to the â€˜wheel is movingâ€™ signal from the filter wheel.
-The task â€˜cam trig1â€™ is started manual and outputs a camera trigger.
-The task â€˜arm wait1â€™ is started when â€˜cam trig1â€™ stops and arms the task â€˜wait1â€™.
-The task â€˜wait1â€™ waits until the â€˜whe moveâ€™ goes down and starts the next â€˜cam trig1â€™ run.
+The pin 'cam trig' is configured as output and connected to the camera.
+The pin 'whe move' is configured to the 'wheel is moving' signal from the filter wheel.
+The task 'cam trig1' is started manual and outputs a camera trigger.
+The task 'arm wait1' is started when 'cam trig1' stops and arms the task 'wait1'.
+The task 'wait1' waits until the 'whe move' goes down and starts the next 'cam trig1' run.
 The filterwheel must be programmed with other software to move to the next filter position upon the end of the camera exposure. 
 
-Start the â€˜cam trig1â€™ task once by software or manually. This will trigger the camera; the filter wheel will start to move to the next position upon the end of exposure; task â€˜arm wait1â€™ will arm the task â€˜wait1â€™; the task â€˜wait1â€™ will generate the next camera trigger when the wheel is on position.
+Start the 'cam trig1' task once by software or manually. This will trigger the camera; the filter wheel will start to move to the next position upon the end of exposure; task 'arm wait1' will arm the task 'wait1'; the task 'wait1' will generate the next camera trigger when the wheel is on position.
 ![image](https://user-images.githubusercontent.com/62476661/217347630-68828d88-d102-4131-8564-bfebfe161d6f.png)
 
 This scheme can be extended for more than one phase. 
-E.G. this is the task definition for two phases exposure. If the camera is configured in â€˜bulbâ€™ mode, the trigger signal determines the exposure time. The â€˜upâ€™ time for the first camera trigger task is different  than for the second to implement two different exposures per channel.
+E.G. this is the task definition for two phases exposure. If the camera is configured in 'bulb' mode, the trigger signal determines the exposure time. The 'up' time for the first camera trigger task is different  than for the second to implement two different exposures per channel.
 ![image](https://user-images.githubusercontent.com/62476661/217347665-aa7f6ad1-680d-42c2-b9db-81352cc5555c.png)
 
 
@@ -371,47 +371,62 @@ int NGS_OnTimer()
 ## Build your own NiVerDig
 To build your own NiVerDig, here are some instructions and pictures for inspiration.
 For interfacing with 5V TTL signals, it is best to pick an Arduino board that operates on 5V.
-I have played with Arduino Uno, Mega, Nano, Nano Every boards. The Arduino framework is the fastest on the Uno/Mega, the performance on the Nano and Nano Eery is much slower. So I advice to use a (compatible) Uno R3 or Mega R3 board.
+I have played with Arduino Uno, Mega, Nano, Nano Every boards. The Arduino framework is the fastest on the Uno/Mega, the performance on the Nano and Nano Eery is much slower. So I advice to use a (compatible) Uno R3/R4 or Mega 2560 R3 board.
 There are several solutions to connect sockets and wires to the Uno/Mega headers. 
 You can buy a [screw-terminal shield](https://www.amazon.com/Electronics-Salon-Terminal-Breakout-Arduino-MEGA-2560/dp/B07H9TJCWN) or manually connect a breakout cable (instructions below). For visual feedback I like to add an RGB LED. And a red button will really please the end-user.
 When accidentally shortcutting a pin that is configured for output, the line driver in the controller chip might overheat and melt. I never encountered this situation, but to limit the current in case of a shortcut it is better to add a 1 kOhm resister in series. Most LEDs also need a resister to limit the current: the best value is found by trial-and-error by judging what LED brightness is optimal.
 
-Uno R3 or Mega R3 ?
-The Mega has more dynamic memory, allowing more pin and task definitions.
-The capabilities of the Uno and Mega:
+Uno R3, Mega R3 or Uno R4 ?
+The Uno R4 has more memory which allows more pin and task definitions.
+The Mega 2560 R3 has has more pins (52) thatn the Uno R4 (20).
+The Uno R3 performs in all aspects less than the R4, so only use the R3 if you already own one.
+The capabilities of the Uno R3,  Mega 2560 R3 and Uno R4:
 
 |              | Uno R3 | Mega 2560 R3 | Uno R4 |
 | ------------ | --- | ---- |
 | Frequency    | 16 MHz | 16 MHz | 48 MHz |
 | pins supporting interrupts | 2: pins 2,3 | 6: pins 2,3,18,19,20,21 | 14: all digital pins |
 | dynamic memory | 2048 bytes | 8192 bytes | 32767 bytes |
-| NiVerDig pin definitions | 4 | 52 |
-| NiVerDig task definitions | 8 | 52 |
+| NiVerDig pin definitions | 4 | 52 | 20 |
+| NiVerDig task definitions | 8 | 52 | 52 |
 
 The NiVerDig sketch allows to define the pins freely, but on a factory reset (button pressed 5 seconds on boot), the default pin definitions are restored.
 To limit the current on shortcut of the TTL ports, 1 kâ„¦ resister can be used. This will have no significant effect on the speed performance. The LED is connected with resisters that limit the emission to non-disturbing weak level. Determine the best values by trial and error.
  These are the default configurations:
 
-Uno
+Uno R3
 | Pin |  Resistor | Mode | Name |
 | --- | --------- | ---- | ---- |
-| 2 | 1 kâ„¦ | INPUT | BNC in |
-| 3 | 1 kâ„¦ | OUTPUT | BNC out |
+| 2 | 1 kΩ¦ | INPUT | BNC in |
+| 3 | 1 kΩ¦ | OUTPUT | BNC out |
 | 8 | - | PULLUP | button | 
 
-Mega
+Mega 2560 R3
 | Pin |  Resistor | Mode | Name |
 | --- | --------- | ---- | ---- |
-| 2 | 1 kâ„¦ | INPUT | black BNC |
-| 3 | 1 kâ„¦ | INPUT|  grey BNC |
-| 18 | 1 kâ„¦ | INPUT | red BNC |
-| 19 | 1 kâ„¦ | INPUT | green BNC |
-| 20 | 1 kâ„¦ | INPUT | blue BNC |
-| 5 | 1 kâ„¦ | OUTPUT | red LED |
-| 6 | 10 kâ„¦ | OUTPUT | green LED | 
-| 7 | 2.2 kâ„¦ | OUTPUT | blue LED |
+| 2 | 1 kΩ¦ | INPUT | black BNC |
+| 3 | 1 kΩ¦ | INPUT|  grey BNC |
+| 18 | 1 kΩ¦ | INPUT | red BNC |
+| 19 | 1 kΩ¦ | INPUT | green BNC |
+| 20 | 1 kΩ¦ | INPUT | blue BNC |
+| 5 | 1 kΩ¦ | OUTPUT | red LED |
+| 6 | 10 kΩ¦ | OUTPUT | green LED | 
+| 7 | 2.2 kΩ¦ | OUTPUT | blue LED |
 | 8 | - |  PULLUP |  button | 
 
+Uno R4
+| Pin |  Resistor | Mode | Name |
+| --- | --------- | ---- | ---- |
+| 2 | 1 kΩ¦ | INPUT | BNC 1 |
+| 3 | 1 kΩ¦ | INPUT|  BNC 2 |
+| 4 | 1 kΩ¦ | INPUT | BNC 3 |
+| 5 | 1 kΩ¦ | INPUT | BNC 4 |
+| 6 | 1 kΩ¦ | INPUT | BNC 5 |
+| 7 | 1 kΩ¦ | INPUT | BNC 6 |
+| 8 | - |  PULLUP |  button | 
+| 9 | 10 kΩ¦ | OUTPUT | red LED | 
+| 10 | 10 kΩ¦ | OUTPUT | green LED | 
+| 11 | 2.2 kΩ¦ | OUTPUT | blue LED |
 
 The wiring diagram for the Mega:
 
@@ -444,8 +459,6 @@ Many simple photodiodes can be connected to an analog pin. Check out the polarit
 I used the Vishay Photo Diode BPW46 https://www.conrad.nl/nl/p/vishay-fotodiode-bpw46-597107.html
 	
 ![diode4](https://github.com/Kees-van-der-Oord/NiVerDig/assets/62476661/65a5f0d4-a231-4ef1-9a90-cae3d8cbd3d3)  ![diode2](https://github.com/Kees-van-der-Oord/NiVerDig/assets/62476661/0b3adfd8-6e6d-4e16-b1cb-c4d6bc1d043f)
-
-
 	
 To adjust the sensitivity, a MPC601 amplifier can be used. The circuit details how to connect a diode are in the MCP data sheet. By trail and error I found that using a 470 fixed resistor and a 100 MegaOhm variable resistor allows changing the gain from 1x to 200000x:
 | Data Sheet circuit | Circuit Plan | Top Side View | Bottom Side View |
@@ -464,5 +477,5 @@ The NiVerDig msi package can be build using the [WIX Toolset](https://wixtoolset
 	
 # Colofon
 Author: Kees van der Oord <Kees.van.der.Oord@inter.nl.net>
-Date: Jan 15, 2023
-Version: 34
+Date: Feb 17, 2024
+Version: 38
