@@ -38,3 +38,4 @@
 /src/NkComPort/NkComPortCon/x64/Debug
 *.odt#
 /src/NiVerDig/wix/ProductVersion.wxi
+/src/NiVerDig/wix/obj/hex_files.wxs
