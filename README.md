@@ -383,7 +383,7 @@ The Uno R3 performs in all aspects less than the R4, so only use the R3 if you a
 The capabilities of the Uno R3,  Mega 2560 R3 and Uno R4:
 
 |              | Uno R3 | Mega 2560 R3 | Uno R4 |
-| ------------ | --- | ---- |
+| ------------ | --- | ---- | ---- |
 | Frequency    | 16 MHz | 16 MHz | 48 MHz |
 | pins supporting interrupts | 2: pins 2,3 | 6: pins 2,3,18,19,20,21 | 14: all digital pins |
 | dynamic memory | 2048 bytes | 8192 bytes | 32767 bytes |
