@@ -397,36 +397,36 @@ To limit the current on shortcut of the TTL ports, 1 kâ„¦ resister can be us
 Uno R3
 | Pin |  Resistor | Mode | Name |
 | --- | --------- | ---- | ---- |
-| 2 | 1 kΩ¦ | INPUT | BNC in |
-| 3 | 1 kΩ¦ | OUTPUT | BNC out |
+| 2 | 1 kΩ | INPUT | BNC in |
+| 3 | 1 kΩ | OUTPUT | BNC out |
 | 8 | - | PULLUP | button | 
 
 Mega 2560 R3
 | Pin |  Resistor | Mode | Name |
 | --- | --------- | ---- | ---- |
-| 2 | 1 kΩ¦ | INPUT | black BNC |
-| 3 | 1 kΩ¦ | INPUT|  grey BNC |
-| 18 | 1 kΩ¦ | INPUT | red BNC |
-| 19 | 1 kΩ¦ | INPUT | green BNC |
-| 20 | 1 kΩ¦ | INPUT | blue BNC |
-| 5 | 1 kΩ¦ | OUTPUT | red LED |
-| 6 | 10 kΩ¦ | OUTPUT | green LED | 
-| 7 | 2.2 kΩ¦ | OUTPUT | blue LED |
+| 2 | 1 kΩ | INPUT | black BNC |
+| 3 | 1 kΩ | INPUT|  grey BNC |
+| 18 | 1 kΩ | INPUT | red BNC |
+| 19 | 1 kΩ | INPUT | green BNC |
+| 20 | 1 kΩ | INPUT | blue BNC |
+| 5 | 1 kΩ | OUTPUT | red LED |
+| 6 | 10 kΩ | OUTPUT | green LED | 
+| 7 | 2.2 kΩ | OUTPUT | blue LED |
 | 8 | - |  PULLUP |  button | 
 
 Uno R4
 | Pin |  Resistor | Mode | Name |
 | --- | --------- | ---- | ---- |
-| 2 | 1 kΩ¦ | INPUT | BNC 1 |
-| 3 | 1 kΩ¦ | INPUT|  BNC 2 |
-| 4 | 1 kΩ¦ | INPUT | BNC 3 |
-| 5 | 1 kΩ¦ | INPUT | BNC 4 |
-| 6 | 1 kΩ¦ | INPUT | BNC 5 |
-| 7 | 1 kΩ¦ | INPUT | BNC 6 |
+| 2 | 1 kΩ | INPUT | BNC 1 |
+| 3 | 1 kΩ | INPUT|  BNC 2 |
+| 4 | 1 kΩ | INPUT | BNC 3 |
+| 5 | 1 kΩ | INPUT | BNC 4 |
+| 6 | 1 kΩ | INPUT | BNC 5 |
+| 7 | 1 kΩ | INPUT | BNC 6 |
 | 8 | - |  PULLUP |  button | 
-| 9 | 10 kΩ¦ | OUTPUT | red LED | 
-| 10 | 10 kΩ¦ | OUTPUT | green LED | 
-| 11 | 2.2 kΩ¦ | OUTPUT | blue LED |
+| 9 | 10 kΩ | OUTPUT | red LED | 
+| 10 | 10 kΩ | OUTPUT | green LED | 
+| 11 | 2.2 kΩ | OUTPUT | blue LED |
 
 The wiring diagram for the Mega:
 
