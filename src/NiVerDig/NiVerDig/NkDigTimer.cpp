@@ -5,10 +5,9 @@
 
 static const wxCmdLineEntryDesc g_cmdLineDesc[] =
 {
-    { wxCMD_LINE_OPTION, "r", "record", "<filename>",      wxCMD_LINE_VAL_STRING, wxCMD_LINE_PARAM_OPTIONAL},
-    { wxCMD_LINE_OPTION, "s", "show",   "minimized|maximized|normal", wxCMD_LINE_VAL_STRING, wxCMD_LINE_PARAM_OPTIONAL},
-    { wxCMD_LINE_PARAM, NULL, NULL,    "recorded file to view", wxCMD_LINE_VAL_STRING, wxCMD_LINE_PARAM_OPTIONAL},
-    //{ wxCMD_LINE_PARAM, NULL, NULL, "recording", wxCMD_LINE_VAL_STRING, wxCMD_LINE_PARAM},
+    { wxCMD_LINE_OPTION, "r",  "record", "<filename>",                 wxCMD_LINE_VAL_STRING, wxCMD_LINE_PARAM_OPTIONAL},
+    { wxCMD_LINE_OPTION, "s",  "show",   "minimized|maximized|normal", wxCMD_LINE_VAL_STRING, wxCMD_LINE_PARAM_OPTIONAL},
+    { wxCMD_LINE_PARAM,  NULL, NULL,     "recorded file to view",      wxCMD_LINE_VAL_STRING, wxCMD_LINE_PARAM_OPTIONAL},
     { wxCMD_LINE_NONE }
 };
 

@@ -207,10 +207,10 @@ byte checkPwmPin(byte pin) { return ((pin != 3) && (pin != 5) &&  (pin != 9) && 
 // Sketch uses 86648 bytes (33%) of program storage space. Maximum is 262144 bytes.
 // Global variables use 8640 bytes (26%) of dynamic memory, leaving 24128 bytes for local variables. Maximum is 32768 bytes.
 #undef BAUD_RATE
-#define BAUD_RATE  2000000
-#define HWPINCOUNT 14 
+#define BAUD_RATE  2000000 // the R4 emulates the COM port on USB level: the baud-rate setting is ignored
+#define HWPINCOUNT 20 
 bool checkpin(byte pin) { return pin < HWPINCOUNT; }
-#define PINCOUNT  22 // 14 digital pins, 8 analog pins
+#define PINCOUNT  20 // 14 digital pins, 6 analog pins
 #define TASKCOUNT 52
 #define EEPROM_SIZE 262143  // 14 * 20 + 52 * 45 = 14940
 #undef RED_LED_PIN
@@ -677,18 +677,17 @@ void reset_pins()
 // ARDUINO_AVR_MEGA2560
 
 // the third model (UNO R4) has 6 BNCs, a button and a RGB LED
-// note: pin 6 and 7 do not support PWM, so these are skipped by default
 #elif defined(ARDUINO_ARCH_RENESAS_UNO)
     {"BNC 1",      2, MODINP, 0},
     {"BNC 2",      3, MODINP, 0},
     {"BNC 3",      4, MODINP, 0},
     {"BNC 4",      5, MODINP, 0},
-    {"BNC 5",      8, MODINP, 0},
-    {"BNC 6",      9, MODINP, 0},
-    {"button",    10, MODPUP, 0},
-    {"red LED",   11, MODOUT, 0},
-    {"green LED", 12, MODOUT, 0},
-    {"blue LED",  13, MODOUT, 0},
+    {"BNC 5",      6, MODINP, 0},
+    {"BNC 6",      7, MODINP, 0},
+    {"button",     8, MODPUP, 0},
+    {"red LED",    9, MODOUT, 0},
+    {"green LED", 10, MODOUT, 0},
+    {"blue LED",  11, MODOUT, 0},
     {"A0",         0, MODADC, 0},
 // ARDUINO_ARCH_RENESAS_UNO
 
