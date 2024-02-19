@@ -879,6 +879,7 @@ NKCOMPORT_API NkComPort_ListPorts(wchar_t * buffer, long buf_size)
 	long port_count = 0;
 	long len;
 
+	buffer[0] = 0;
     if (( RegOpenKeyEx(hRootKey, szSerialCom, 0,KEY_READ, &hkReg) == ERROR_SUCCESS ) &&
 		( RegQueryInfoKey(hkReg,NULL,NULL,NULL,NULL,NULL,NULL,&dwValues,NULL,NULL,NULL,NULL) == ERROR_SUCCESS) &&
 		( dwValues >= 1)) 
