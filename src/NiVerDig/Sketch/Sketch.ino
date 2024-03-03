@@ -62,6 +62,7 @@ NiVerDig/Sketch:
   version 12/34: 20-01-2023: no change: timestamp of fast pulses is overwritten: should be detected on PC side ...
   version 13/35: 05-05-2023: fixed crash in COM port list - added ADC support
   version 14/38: 26-08-2023: added support for the Uno R4
+  version 15/39: 24-02-2024: added support for R4 ADC 14 bits
 */
 
 #include <limits.h>
@@ -71,7 +72,7 @@ NiVerDig/Sketch:
 #define FS(x) (__FlashStringHelper*)(x)
 
 #define countof(A) (sizeof(A)/sizeof((A)[0]))
-#define MAX_BYTE ((byte)0xFF)
+#define MAX_BYTE (byte(0xFF))
 #define MAX_ULONG 0xFFFFFFFF
 
 //#define DEBUG             // define to get debug output set with 'verbose' 
@@ -118,7 +119,7 @@ UnoR4Timer TimerGPT0(TIMER_MODE_ONE_SHOT, GPT_TIMER, 0, TIMER_SOURCE_DIV_16);
 // if you change the PINCOUNT, struct pin, TASKCOUNT, struct task: add isrs and increment MODEL (because the EEPROM layout changes)
 #define MODEL       3
 #define REVISION    2
-#define VERSION     38
+#define VERSION     39
 #define BAUD_RATE   500000 // for the uno and mega
 #define EOL "\r\n"
 #define BUTTON_PIN  8      // press the button during boot to set halt (1 second) or reset (5 seconds)
@@ -407,7 +408,7 @@ void setup()
 #endif
 
 #if defined(ARDUINO_ARCH_RENESAS_UNO)
-    analogReadResolution(10);
+    analogReadResolution(14);
 #endif
 
   // actions
@@ -612,13 +613,13 @@ void cmd_pin_status(byte cmd_index, byte argc, char **argv)
   else if(p.mode == MODDAC)
   {
     if (v > 4095) v = 4095;
-    analogWrite(p.pin, (byte)v);
+    analogWrite(p.pin, byte(v));
   }
 #endif
   else // pwm
   {
     if (v > 255) v = 255;
-    analogWrite(p.pin, (byte)v);
+    analogWrite(p.pin, byte(v));
   }
   p.tick = micros();
   p.state = v;
@@ -802,7 +803,7 @@ byte parse_pin_state(struct pin & p, byte default_value, const char * text)
     if (lval < 0) lval = 0;
     if (lval > 255) lval = 255;
   }
-  return (byte) lval;
+  return byte(lval);
 }
 
 void cmd_pins(byte cmd_index, byte argc, char **argv)
@@ -891,7 +892,7 @@ void cmd_pins(byte cmd_index, byte argc, char **argv)
   if (argc > argi)
   {
     val = find_key_index(pin_prop_info, argv[argi]);
-    if (val != (byte) - 1) {
+    if (val != MAX_BYTE) {
       prop_mode = 1;
       propi = val + 1;
       argi = 2;
@@ -1164,7 +1165,7 @@ const char * get_stat_name(byte s) {
 byte get_task_state(byte ti) {
   byte stat;
   if (tasks[ti].counter > 0) stat = 3;
-  else stat = (byte)(COUNT2STAT(tasks[ti].counter));
+  else stat = byte((COUNT2STAT(tasks[ti].counter)));
   if (stat > 3) stat = 0;
   return stat;
 }
@@ -1254,7 +1255,7 @@ void cmd_task_status(byte cmd_index, byte argc, char **argv)
     return;
   }
   byte ti = parse_index_or_name(argv[0], (void*)&get_task_name);
-  if (ti == (byte) - 1)
+  if (ti == MAX_BYTE)
   {
     Serial.print(F("error: first argument should be task index or name." EOL));
     return;
@@ -1268,7 +1269,7 @@ void cmd_task_status(byte cmd_index, byte argc, char **argv)
   long state_index;
   if (isdigit(argv[1][0])) state_index = atol(argv[1]);
   else state_index = parse_index_or_name(argv[1], (void*)&get_stat_name);
-  if (state_index == (byte) - 1)
+  if (state_index == MAX_BYTE)
   {
     Serial.print(F("error: second argument should be task state." EOL));
     return;
@@ -1329,11 +1330,11 @@ void cmd_tasks(byte cmd_index, byte argc, char**argv)
   }
   // argument 0 is task index or name
   byte ti = parse_index_or_name(argv[0], (void*)&get_task_name);
-  if (ti == (byte) - 1)
+  if (ti == MAX_BYTE)
   {
     ti = parse_ulong(argv[0]);
-    if (ti != (byte) - 1) --ti;
-    if ((ti == (byte) - 1) || (argc < 2))
+    if (ti != MAX_BYTE) --ti;
+    if ((ti == MAX_BYTE) || (argc < 2))
     {
       Serial.print(F("task argument error: first argument should be task index or name. type 'task' to see defined tasks." EOL));
       return;
@@ -1365,7 +1366,7 @@ void cmd_tasks(byte cmd_index, byte argc, char**argv)
   if (argc > argi)
   {
     val = parse_enum(argv[argi], task_prop_info);
-    if (val != (byte) - 1) {
+    if (val != MAX_BYTE) {
       prop_mode = 1;
       propi = val + 1;
       argi = 2;
@@ -1384,7 +1385,7 @@ void cmd_tasks(byte cmd_index, byte argc, char**argv)
   if ((argc > argi) && (propi == 2))
   {
     val = parse_enum(argv[argi], trigger_info);
-    if (val != (byte) - 1) t.trigger = val;
+    if (val != MAX_BYTE) t.trigger = val;
   }
   if (!prop_mode) {
     ++argi;
@@ -1404,7 +1405,7 @@ void cmd_tasks(byte cmd_index, byte argc, char**argv)
         val = parse_index_or_name(argv[argi], (void*)&get_task_name);
       }
     }
-    if (val != (byte) - 1) t.srcpin = val;
+    if (val != MAX_BYTE) t.srcpin = val;
   }
   if (!prop_mode) {
     ++argi;
@@ -1414,7 +1415,7 @@ void cmd_tasks(byte cmd_index, byte argc, char**argv)
   if ((argc > argi) && (propi == 4))
   {
     val = find_key_index(action_info, argv[argi]);
-    if (val != (byte) - 1) t.action = val;
+    if (val != MAX_BYTE) t.action = val;
   }
   if (!prop_mode) {
     ++argi;
@@ -1508,7 +1509,7 @@ void cmd_tasks(byte cmd_index, byte argc, char**argv)
   // argument 10 are the options
   if ((argc > argi) && (propi == 10))
   {
-    val = parse_options(argv[argi], option_info); if (val != (byte) - 1) t.options = val;
+    val = parse_options(argv[argi], option_info); if (val != MAX_BYTE) t.options = val;
   }
 
   if (ti == task_count) task_count = ti + 1;
@@ -1518,7 +1519,7 @@ void cmd_tasks(byte cmd_index, byte argc, char**argv)
 
 const char * get_task_name(byte i)
 {
-  if (i == (byte) - 1) return "*";
+  if (i == MAX_BYTE) return "*";
   if (i >= task_count) return NULL;
   return tasks[i].name;
 }
@@ -1719,6 +1720,15 @@ void cmd_halt(byte cmd_index, byte argc, char**argv)
   {
     init_tasks(0, -1);
   }
+}
+
+void cmd_adc_res(byte cmd_index, byte argc, char**argv)
+{
+#if defined(ARDUINO_ARCH_RENESAS_UNO) || defined(ARDUINO_PORTENTA_C33)
+  Serial.print("14" EOL);
+#else
+  Serial.print("10" EOL);
+#endif  
 }
 
 void cmd_stop(byte cmd_index, byte argc, char**argv)
@@ -2581,7 +2591,7 @@ inline void tick_task(byte ti)
         }
         t2.starttick = t.starttick + t.nexttick;
       }
-      else if (t.dstpin == (byte) - 1)
+      else if (t.dstpin == MAX_BYTE)
       {
         if (t.action == ACTSTOTASK)
         {
@@ -2629,12 +2639,13 @@ const s_cmd_text cmd_text_table[] PROGMEM =
   {"disarm",    "<task>: Disarm Tasks"          },
   {"start",     "<task>: Start Task"            },
   {"stop",      "[<task> | !]: Stop Task"       },
+  {"adc_res",   "return ADC Resolution"         },
   {".",         "Report state changes"          },
   {"",          "Config"                        },
   {"dpin",      "Define Pins []"                },
   {"dtask",     "Define Tasks []"               },
   {"write",     "Save Tasks"                    },
-  {"scope",     "Oscilloscope Mode"             },
+  {"scope",     "[16] [<chan-mask>]: Scope Mode"},
   {"echo",      "Echo (off,on)"                 },
   {"reset",     "Factory Reset"                 },
   {"halt",      "Halt all Tasks (0,1)"          }
@@ -2657,6 +2668,7 @@ const s_cmd_info cmd_info_table[] =
   {cmd_disarm,     FLAG_NOGUI},
   {cmd_fire,       FLAG_NOGUI},
   {cmd_stop,       FLAG_NOGUI},
+  {cmd_adc_res,    FLAG_NOGUI},
   {cmd_report,     FLAG_NOGUI},
   {cmd_void,       FLAG_GROUP},
   {cmd_pins                  },
@@ -2673,9 +2685,9 @@ const s_cmd_info cmd_info_table[] =
 
 const s_cmd_var cmd_var_table[] = {
   // address, lower, higher, cmd_index
-  {&echo,      0, 1, 14},
+  {&echo,      0, 1, 15},
 #if defined(DEBUG)
-  {&verbose, 0, 3, 17}
+  {&verbose, 0, 3, 18}
 #endif
 };
 
@@ -2935,6 +2947,13 @@ inline void SerialWriteULong(unsigned long ul)
   Serial.write(p[3]);
 }
 
+inline void SerialWriteWord(word us)
+{
+  byte * p = (byte*)&us;
+  Serial.write(p[0]);
+  Serial.write(p[1]);
+}
+
 void send_scope_data()
 {
   for(byte pi = 0; pi < pin_count; ++pi)
@@ -2948,7 +2967,11 @@ void send_scope_data()
 #if defined(USEADC)
     if(p.mode == MODADC) 
     {
+#if defined(ARDUINO_ARCH_RENESAS_UNO) || defined(ARDUINO_PORTENTA_C33)
+      Serial.write(pi); Serial.write(byte(p.state>>6)); SerialWriteULong(p.tick);
+#else// Renesas
       Serial.write(pi); Serial.write(byte(p.state>>2)); SerialWriteULong(p.tick);
+#endif // Renesas
     } 
     else    
 #endif
@@ -2963,9 +2986,30 @@ void send_scope_data()
   }
 }
 
-void cmd_scope(byte cmd_index, byte argc, char**argv)
+void check_input_pins_and_send_scope_data()
 {
-  Serial.print(F("Entering oscilloscope mode. Send any character to end." EOL));
+  for(byte pi = 0; pi < pin_count; ++pi)
+  {
+    struct pin & p = pins[pi];
+    byte state = digitalRead(p.pin);
+    if(state != p.state)
+    {
+#if defined(DEBUG)
+      if(!verbose)
+#endif
+        {Serial.write(pi); Serial.write(state); SerialWriteULong(micros());}
+#if defined(DEBUG)
+      else
+        {Serial.print(F("*"));Serial.print(pi); Serial.print(" "); Serial.print(digitalRead(p.pin)); Serial.print(" "); Serial.print(micros()); Serial.print(EOL);}
+#endif
+      p.state = state;
+    }
+  }
+}
+
+void cmd_scope8(byte cmd_index, byte argc, char**argv)
+{
+  Serial.print(F("Entering scope 8 mode. Send any character to end." EOL));
   unsigned long ts = micros();
 #if defined(DEBUG)
   if(!verbose)
@@ -2973,7 +3017,7 @@ void cmd_scope(byte cmd_index, byte argc, char**argv)
   {Serial.write(NOPIN);Serial.write((byte)-2); SerialWriteULong(ts);} // current tick count
 #if defined(DEBUG)
   else
-  {Serial.print("time "); Serial.print(micros()); Serial.print(EOL);}
+  {Serial.print("time "); Serial.print(ts); Serial.print(EOL);}
 #endif
   
   // send current values of the pins
@@ -2996,23 +3040,7 @@ void cmd_scope(byte cmd_index, byte argc, char**argv)
     }
     else
     {
-      for(byte pi = 0; pi < pin_count; ++pi)
-      {
-        struct pin & p = pins[pi];
-        byte state = digitalRead(p.pin);
-        if(state != p.state)
-        {
-#if defined(DEBUG)
-          if(!verbose)
-#endif
-            {Serial.write(pi); Serial.write(state); SerialWriteULong(micros());}
-#if defined(DEBUG)
-          else
-            {Serial.print(F("*"));Serial.print(pi); Serial.print(" "); Serial.print(digitalRead(p.pin)); Serial.print(" "); Serial.print(micros()); Serial.print(EOL);}
-#endif
-          p.state = state;
-        }
-      }
+      check_input_pins_and_send_scope_data();
     }
     if(Serial.available())
     {
@@ -3032,6 +3060,122 @@ void cmd_scope(byte cmd_index, byte argc, char**argv)
   else
   {Serial.print(F("end of scope mode" EOL));}
 #endif
+}
+
+void send_scope_data16()
+{
+  for(byte pi = 0; pi < pin_count; ++pi)
+  {
+    struct pin & p = pins[pi];
+    if(!p.changed) continue;
+    p.changed = false;
+#if defined(DEBUG)
+    if(!verbose)
+#endif
+#if defined(USEADC)
+    if(p.mode == MODADC) 
+    {
+      Serial.write(pi); SerialWriteWord(p.state); SerialWriteULong(p.tick);
+    } 
+    else    
+#endif
+    {
+    // read the pin state from the device because the isr() could have changed it ?
+      Serial.write(pi); SerialWriteWord(digitalRead(p.pin)); SerialWriteULong(p.tick);
+    }
+#if defined(DEBUG)
+    else
+    {Serial.print(F("*"));Serial.print(pi); Serial.print(" "); Serial.print(p.state); Serial.print(" "); Serial.print(p.tick); Serial.print(EOL);}
+#endif
+  }
+}
+
+void check_input_pins_and_send_scope_data16()
+{
+  for(byte pi = 0; pi < pin_count; ++pi)
+  {
+    struct pin & p = pins[pi];
+    word state = digitalRead(p.pin);
+    if(state != p.state)
+    {
+#if defined(DEBUG)
+      if(!verbose)
+#endif
+        {Serial.write(pi); SerialWriteWord(state); SerialWriteULong(micros());}
+#if defined(DEBUG)
+      else
+        {Serial.print(F("*"));Serial.print(pi); Serial.print(" "); Serial.print(digitalRead(p.pin)); Serial.print(" "); Serial.print(micros()); Serial.print(EOL);}
+#endif
+      p.state = state;
+    }
+  }
+}
+
+void cmd_scope16(byte cmd_index, byte argc, char**argv)
+{
+  Serial.print(F("Entering scope 16 mode. Send any character to end." EOL));
+  unsigned long ts = micros();
+#if defined(DEBUG)
+  if(!verbose)
+#endif
+  {Serial.write(NOPIN);SerialWriteWord(0xFE); SerialWriteULong(ts);} // current tick count
+#if defined(DEBUG)
+  else
+  {Serial.print("time "); Serial.print(ts); Serial.print(EOL);}
+#endif
+  
+  // send current values of the pins
+  for(byte pi = 0; pi < pin_count; ++pi)
+  {
+    struct pin & p = pins[pi];
+    p.tick = ts;
+    p.changed = true;
+  }
+  send_scope_data16();
+  
+  while(1)
+  {
+    if(task_count)
+    {
+      check_input_pins();
+      tick_tasks();
+      check_finished_tasks();
+      send_scope_data16();
+    }
+    else
+    {
+      check_input_pins_and_send_scope_data16();
+    }
+    if(Serial.available())
+    {
+      char c = Serial.read();
+      if(c != '?') break;
+#if defined(DEBUG)
+      if(!verbose)
+#endif
+      {Serial.write(NOPIN);SerialWriteWord(0xFE); SerialWriteULong(micros());}
+    }
+  }
+#if defined(DEBUG)
+  if(!verbose)
+#endif
+  {Serial.write(NOPIN);SerialWriteWord(0xFF); SerialWriteULong(micros());}
+#if defined(DEBUG)
+  else
+  {Serial.print(F("end of scope mode" EOL));}
+#endif
+}
+
+void cmd_scope(byte cmd_index, byte argc, char**argv)
+{
+  if((argc < 1) || strcmp(argv[0],"16"))
+  {
+    cmd_scope8(cmd_index, argc, argv);
+  }
+  else
+  {
+    cmd_scope16(cmd_index, argc, argv);
+  }
 }
 
 void init_vars()
@@ -3088,7 +3232,7 @@ void cmd_set_var(byte cmd_index, byte argc, char**argv)
 {
   const s_cmd_info * info = &cmd_info_table[cmd_index];
   byte vi = find_var(cmd_index);
-  if ((!argc || (argv[0][0] == '?')) || (info->flags & FLAG_READONLY) || (vi == (byte) - 1))
+  if ((!argc || (argv[0][0] == '?')) || (info->flags & FLAG_READONLY) || (vi == MAX_BYTE))
   {
     cmd_info_var(cmd_index);
     return;
@@ -3289,7 +3433,7 @@ void cmd_info_var(byte cmd_index)
   }
   Serial.print(ss);
   Serial.print(FS(text->name));
-  if (vi != (byte) - 1)
+  if (vi != MAX_BYTE)
   {
     const s_cmd_var * var = &cmd_var_table[vi];
     if (info->flags & FLAG_SIGNED)
@@ -3411,7 +3555,7 @@ byte parse_index_or_name(char * s, void * pfv)
   if (isdigit(s[k]))
   {
     ti = parse_ulong(s + k);
-    if (ti != (byte) - 1) --ti;
+    if (ti != MAX_BYTE) --ti;
     if (!(*pf)(ti)) ti = NOTASK;
     return ti;
   }
@@ -3553,7 +3697,7 @@ byte parse_options(const char * s, const char *info)
     strncpy(text, s, l);
     text[l] = 0;
     byte i = find_key_index(info, text);
-    if (i != (byte) - 1)
+    if (i != MAX_BYTE)
     {
       v |= (1 << i);
     }

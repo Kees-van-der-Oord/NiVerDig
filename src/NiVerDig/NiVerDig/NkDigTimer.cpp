@@ -60,7 +60,7 @@ public:
 
     bool OnInit() wxOVERRIDE;
 
-    EMODE m_mode;
+    EMODE    m_mode;
     wxString m_file;
     long     m_showCmd;
 };
@@ -69,7 +69,6 @@ wxDECLARE_APP(appMain);
 wxIMPLEMENT_APP(appMain);
 
 enum EPorts { EPORTMENU = 10000, EPORTMENULAST = EPORTMENU + 1000, EUPLOADHEX };
-
 
 enum EPanels 
 { 
@@ -99,6 +98,7 @@ frameMain::frameMain(wxWindow* parent,
     , m_epanel(ENOPANEL)
     , m_halt(false)
     , m_log()
+    , m_adc_res(10)
     , m_ilog(m_log.m_name)
     , dev_notify(NULL)
 {
@@ -558,9 +558,16 @@ void frameMain::SetPort(wxString port)
     }
 */
     ReadAll();
+
     WriteLine(wxT("halt\n"));
     ReadLine(answer, 1024, 200);
     swscanf_s(answer, wxT("halt=%ld"), &m_halt);
+
+    WriteLine(wxT("adc_res\n"));
+    ReadLine(answer, 1024, 200);
+    swscanf_s(answer, wxT("%ld"), &m_adc_res);
+    if (m_adc_res < 8) m_adc_res = 8;
+    if (m_adc_res > 16) m_adc_res = 16;
 
     ShowPanel(ECONTROLPANEL, true);
 }

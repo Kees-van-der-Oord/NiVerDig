@@ -16,9 +16,11 @@ DWORD GetSystemPageSize()
 	return si.dwAllocationGranularity;
 }
 
-DWORD scopePages::m_mapPageSize = GetSystemPageSize();
+DWORD scopePages<byte>::m_mapPageSize = GetSystemPageSize();
+DWORD scopePages<word>::m_mapPageSize = GetSystemPageSize();
 
-fileSample * scopeReader::First(size_t first)
+template <typename T>
+fileSample<T> * scopeReader<T>::First(size_t first)
 {
 	if (!m_sample)
 	{
@@ -64,9 +66,10 @@ fileSample * scopeReader::First(size_t first)
 	return 	NULL;
 }
 
-fileSample* scopeReader::Next()
+template <typename T>
+fileSample<T>* scopeReader<T>::Next()
 {
-	fileSample* sample = m_sample + 1;
+	fileSample<T>* sample = m_sample + 1;
 	if (sample >= m_pages.m_end)
 	{
 		sample = m_pages.MapNext(10);
@@ -75,9 +78,10 @@ fileSample* scopeReader::Next()
 	return sample;
 }
 
-fileSample* scopeReader::Prev()
+template <typename T>
+fileSample<T>* scopeReader<T>::Prev()
 {
-	fileSample* sample = m_sample - 1;
+	fileSample<T>* sample = m_sample - 1;
 	if (sample < m_pages.m_begin)
 	{
 		sample = m_pages.MapPrev(10);
@@ -86,7 +90,8 @@ fileSample* scopeReader::Prev()
 	return sample;
 }
 
-void scopeReader::Reset()
+template <typename T>
+void scopeReader<T>::Reset()
 {
 	m_pages.Unmap();
 	m_sample = NULL;
@@ -121,7 +126,7 @@ bool NkDigTimerGraph::Create(wxWindow* parent,
 	return result;
 }
 
-void NkDigTimerGraph::Init(frameMain* main, HANDLE file, size_t lastsample) 
+void NkDigTimerGraph::Init(frameMain* main, HANDLE file, size_t lastsample, long adcBits)
 { 
 	m_main = main;
 	m_lines.resize(m_main->m_pins.items.size());
@@ -129,17 +134,21 @@ void NkDigTimerGraph::Init(frameMain* main, HANDLE file, size_t lastsample)
 	{
 		m_lines[i].type = m_main->m_pins.items[i].type;
 	}
-	m_reader.SetFile(file, lastsample);
+	m_adcBits = adcBits;
+	if(m_adcBits != 8) m_readerWord.SetFile(file, lastsample);
+	else m_readerByte.SetFile(file, lastsample);
 }
 
 void NkDigTimerGraph::SetLastSample(size_t lastsample)
 {
-	m_reader.SetLastSample(lastsample);
+	if (m_adcBits != 8) m_readerWord.SetLastSample(lastsample);
+	else m_readerByte.SetLastSample(lastsample);
 }
 
 void NkDigTimerGraph::Reset()
 {
-	m_reader.Reset();
+	m_readerWord.Reset();
+	m_readerByte.Reset();
 	m_lines.reset();
 	m_first = 0;
 	m_last = m_first + m_period;
@@ -208,9 +217,17 @@ void NkDigTimerGraph::OnSize(wxSizeEvent& event)
 
 void NkDigTimerGraph::OnPaint(wxPaintEvent& WXUNUSED(evt))
 {
+	if (m_adcBits != 8) OnPaintImpl<word>(m_readerWord);
+	else OnPaintImpl<byte>(m_readerByte);
+}
+
+template <typename T>
+void NkDigTimerGraph::OnPaintImpl(scopeReader<T> & m_reader)
+{
 	wxPaintDC dc(this);
 	wxBufferedDC bdc(&dc, m_bitmap);
 	HDC hdc = (HDC)bdc.GetHandle();
+	long adcScale = (1 << m_adcBits) / 256;
 
 	if (m_drawGrid)
 	{
@@ -694,7 +711,7 @@ void NkDigTimerGraph::OnPaint(wxPaintEvent& WXUNUSED(evt))
 	}
 	// paint the data until now
 	bdc.SetPen(*wxBLUE_PEN);
-	for (fileSample* s = m_reader.Next(); s; s = m_reader.Next())
+	for (fileSample<T>* s = m_reader.Next(); s; s = m_reader.Next())
 	{
 		if (!m_first)
 		{
@@ -714,7 +731,7 @@ void NkDigTimerGraph::OnPaint(wxPaintEvent& WXUNUSED(evt))
 				int y1;
 				if (line.type == SItem::eAdcPin)
 				{
-					int pos = ( int(line.value) * (line.bottom - line.top - 8)) / 256;
+					int pos = ((line.value/adcScale) * (line.bottom - line.top - 8)) / 256;
 					y1 = line.bottom - 4 - pos;
 				}
 				else
@@ -731,7 +748,7 @@ void NkDigTimerGraph::OnPaint(wxPaintEvent& WXUNUSED(evt))
 					int y2;
 					if (line.type == SItem::eAdcPin)
 					{
-						int pos = (int(s->state) * (line.bottom - line.top - 8)) / 256;
+						int pos = ((s->state/adcScale) * (line.bottom - line.top - 8)) / 256;
 						y2 = line.bottom - 4 - pos;
 					}
 					else
@@ -756,11 +773,20 @@ void NkDigTimerGraph::OnPaint(wxPaintEvent& WXUNUSED(evt))
 	int x2 = m_graphArea.x + (last - m_first) * m_hscale;
 	for (auto& line : m_lines)
 	{
-		if ((line.last < last)/* && (line.type != SItem::eAdcPin)*/)
+		if ((line.last < last)/*&& (line.type != SItem::eAdcPin)*/)
 		{
 			int x1 = m_graphArea.x;
 			if (line.last > m_first) x1 += (line.last - m_first) * m_hscale;
-			int y = line.value ? line.top + 4 : line.bottom - 4;
+			int y;
+			if (line.type == SItem::eAdcPin)
+			{
+				int pos = ((line.value / adcScale) * (line.bottom - line.top - 8)) / 256;
+				y = line.bottom - 4 - pos;
+			}
+			else
+			{
+				y = line.value ? line.top + 4 : line.bottom - 4;
+			}
 			MoveToEx(hdc, x1, y, NULL);
 			LineTo(hdc, x2, y);
 			line.last = m_current;
@@ -776,6 +802,13 @@ void NkDigTimerGraph::OnTimer(wxTimerEvent& event)
 		// to do: process new data and remember new trigger point ...
 		return;
 	}
+	if (m_adcBits != 8) OnTimerImpl<word>(m_readerWord);
+	else OnTimerImpl<byte>(m_readerByte);
+}
+
+template <typename T>
+void NkDigTimerGraph::OnTimerImpl(scopeReader<T>& m_reader)
+{
 	if (m_triggered)
 	{
 		if (m_current > m_last)
@@ -806,7 +839,7 @@ void NkDigTimerGraph::OnTimer(wxTimerEvent& event)
 	else
 	{
 		// check in the data if a trigger event occured
-		for (fileSample* s = m_reader.Next(); s; s = m_reader.Next())
+		for (fileSample<T>* s = m_reader.Next(); s; s = m_reader.Next())
 		{
 			m_current = s->timestamp;
 			size_t channel = s->channel;
@@ -851,9 +884,16 @@ void NkDigTimerGraph::WindTo(size_t first)
 
 void NkDigTimerGraph::WindBack(size_t first)
 {
+	if (m_adcBits != 8) WindBackImpl<word>(first, m_readerWord);
+	else WindBackImpl<byte>(first, m_readerByte);
+}
+
+template <typename T>
+void NkDigTimerGraph::WindBackImpl(size_t first, scopeReader<T>& m_reader)
+{
 	m_first = first;
 	m_last = m_first + m_period;
-	fileSample* s;
+	fileSample<T>* s;
 	for (s = m_reader.m_sample; s; s = m_reader.Prev())
 	{
 		m_current = s->timestamp;
@@ -902,7 +942,8 @@ void NkDigTimerGraph::Start(bool on)
 		m_timer.Stop();
 		return;
 	}
-	m_reader.Reset();
+	if(m_adcBits != 8) m_readerWord.Reset();
+	else m_readerByte.Reset();
 	size_t period = m_last - m_first;
 	m_current = 0;
 	m_first = 0;

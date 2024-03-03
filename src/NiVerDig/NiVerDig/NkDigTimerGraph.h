@@ -63,7 +63,7 @@ public:
 		long style = wxScrolledWindowStyle,
 		const wxString& name = wxASCII_STR(wxPanelNameStr));
 
-	void Init(frameMain* main, HANDLE file, size_t lastsample);
+	void Init(frameMain* main, HANDLE file, size_t lastsample, long adcBits);
 	void SetLastSample(size_t lastsample);
 	void Reset();
 	void Start(bool on);
@@ -79,11 +79,14 @@ public:
 	void Move(double amount);
 	void WindTo(size_t first);
 	void WindBack(size_t first);
+	template <typename T> void WindBackImpl(size_t first, scopeReader<T> & m_reader);
 	void WindFore(size_t first);
 
 	void OnSize(wxSizeEvent& event);
 	void OnPaint(wxPaintEvent& WXUNUSED(evt));
+	template <typename T> void OnPaintImpl(scopeReader<T> & m_reader);
 	void OnTimer(wxTimerEvent& event);
+	template <typename T> void OnTimerImpl(scopeReader<T>& m_reader);
 
 	enum { NOT_INITIALIZED = 0xFFFF };
 
@@ -109,7 +112,6 @@ public:
 			}
 		}
 	};
-	
 
 	frameMain*     m_main;
 	wxSize         m_wndSize;
@@ -135,10 +137,12 @@ public:
 	size_t           m_triggerDelay;
 	size_t           m_triggerTimeout;
 
-	bool           m_drawGrid;
-	CPinLines      m_lines;
+	bool             m_drawGrid;
+	CPinLines        m_lines;
 
-	scopeReader   m_reader;
+	long              m_adcBits;
+	scopeReader<byte> m_readerByte;
+	scopeReader<word> m_readerWord;
 
 private:
     wxDECLARE_EVENT_TABLE();

@@ -60,10 +60,12 @@ struct SItems
     wxString           command;
     SFields            fields;
     std::vector<SItem> items;
+    long               dataBits;
     void clear()
     {
         fields.clear();
         items.clear();
+        dataBits = 8;
     }
     wxString v(size_t index, const wxString& field)
     {
@@ -117,7 +119,7 @@ struct SItems
         if (!fields[field_index].modes.count(mode)) return field;
         return fields[field_index].modes[mode];
     }
-    bool LoadFromFile(HANDLE data, size_t & lastsample)
+    bool LoadFromFile(HANDLE data, size_t& lastsample)
     {
         clear();
         fields.push_back(SField(wxT("index"), SField::eString));
@@ -150,13 +152,26 @@ struct SItems
             for (size_t i = 0; i < lines.size(); ++i)
             {
                 wxArrayString fields = wxSplit(lines[i], wxT('\t'));
-                if (fields.size() != 4) break;
-                wxLongLong_t index = -1;
-                fields[1].ToLongLong(&index);
-                if (index != i) break;
-                SItem::EItemType type;
-                fields[3].ToLong((long*)&type);
-                items.push_back(SItem(fields[1], fields[2], type));
+                if (fields.size() < 1) break;
+                if (fields[0] == wxT("pin"))
+                {
+                    if (fields.size() != 4) break;
+                    wxLongLong_t index = -1;
+                    fields[1].ToLongLong(&index);
+                    if (index != items.size()) break;
+                    SItem::EItemType type;
+                    fields[3].ToLong((long*)&type);
+                    items.push_back(SItem(fields[1], fields[2], type));
+                }
+                else if (fields[0] == wxT("bits"))
+                {
+                    if (fields.size() != 2) break;
+                    if(fields[1].ToLong(&dataBits))
+                    {
+                        if (dataBits < 8) dataBits = 8;
+                        if (dataBits > 16) dataBits = 16;
+                    }
+                }
             }
             lastsample = pos.QuadPart;
             break;
@@ -165,7 +180,7 @@ struct SItems
         {
             // read the channels from the first samples
             SetFilePointer(data, 0, NULL, FILE_BEGIN);
-            fileSample sample = { 0 };
+            fileSample<byte> sample = { 0 };
             for (size_t i = 0; ReadFile(data, &sample, sizeof(sample), NULL, NULL); ++i)
             {
                 if (sample.channel != i) break;
@@ -209,6 +224,7 @@ public:
     SItems        m_pins;
     SItems        m_tasks;
     long          m_halt;
+    long          m_adc_res;
 
     wxLogFile       m_log;
     wxIndexTextFile m_ilog;

@@ -125,6 +125,7 @@ public:
 	: formScope(main->m_mainPanel)
 	, m_main(main)
 	, m_thread(NULL)
+	, m_adcResolution(0)
 	, m_periodIndex(9) // 1 second
 	, m_save(false)
 	, m_format(FORMAT_BINARY)
@@ -137,6 +138,7 @@ public:
 		if (m_mode == MODE_VIEW)
 		{
 			m_tool->EnableTool(ID_TOOLON, false);
+			m_tool->EnableTool(ID_TOOLADCRES, false);
 		}
 		if (m_mode == MODE_RECORD) m_save = true;
 		OpenDataFile(file);
@@ -147,6 +149,11 @@ public:
 		}
 
 		m_profilePrefix.Format(wxT("%s/Scope/"), m_main->m_portName);
+		if (m_mode == MODE_RECORD)
+		{
+			m_main->m_profile->Read(m_profilePrefix + wxT("AdcRes"), &m_adcResolution);
+			m_tool->SetToolLabel(ID_TOOLADCRES, wxString::Format(wxT("%ld-bit"), m_adcResolution ? m_main->m_adc_res : 8));
+		}
 		m_main->m_profile->Read(m_profilePrefix + wxT("Period"),&m_periodIndex);
 		m_graph->SetPeriod(GetPeriod(m_periodIndex), false);
 		m_tool->SetToolLabel(ID_TOOLPERIOD, FormatPeriod(m_graph->m_period));
@@ -175,7 +182,8 @@ public:
 		switch (m_mode)
 		{
 		case MODE_VIEW:
-			ZoomAll();
+			if (m_adcResolution) ZoomAll<word>();
+			else ZoomAll<byte>();
 			break;
 		case MODE_RECORD:
 			m_tool->ToggleTool(ID_TOOLSAVE, true);
@@ -218,6 +226,7 @@ public:
 			}
 			m_data = CreateFile(m_data_name, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_TEMPORARY, NULL);
 			m_lastsample = 0;
+			m_main->m_pins.dataBits = m_adcResolution ? m_main->m_adc_res : 8;
 			if (!m_isTempData)
 			{
 				m_filename = m_data_name;
@@ -232,12 +241,14 @@ public:
 			CloseHandle(m_data);
 			m_data = CreateFile(m_data_name, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 			m_main->m_pins.LoadFromFile(m_data, m_lastsample);
+			m_adcResolution = m_main->m_pins.dataBits != 8;
+			m_tool->SetToolLabel(ID_TOOLADCRES, wxString::Format(wxT("%ld-bit"), m_main->m_pins.dataBits));
 		}
 		if (m_data == INVALID_HANDLE_VALUE)
 		{
 			wxMessageBox(wxString::Format(wxT("Error %s opening file %s"), wxSysErrorMsg(), m_data_name),wxMessageBoxCaptionStr, wxICON_ERROR | wxOK);
 		}
-		m_graph->Init(m_main,m_data,m_lastsample);
+		m_graph->Init(m_main,m_data,m_lastsample, m_main->m_pins.dataBits);
 	}
 
 	void CloseDataFile()
@@ -266,6 +277,7 @@ public:
 	}
 
 	void SetPeriod(long index, bool keep_center);
+	void SetAdcResolution(long index);
 
 	virtual void m_toolOnOnToolClicked(wxCommandEvent& event)
 	{
@@ -305,7 +317,8 @@ public:
 			{
 				if (wcscmp(m_data_name, m_filename))
 				{
-					SaveFile();
+					if(m_adcResolution) SaveFile<word>();
+					else SaveFile<byte>();
 				}
 				else
 				{
@@ -369,9 +382,11 @@ public:
 	virtual void m_toolZoomAllOnToolClicked(wxCommandEvent& event) 
 	{ 
 		event.Skip();
-		ZoomAll();
+		if(m_adcResolution) ZoomAll<word>();
+		else ZoomAll<byte>();
 	}
 
+	template <typename T>
 	void ZoomAll()
 	{
 		// read the first and the last timestamp in the file.
@@ -385,12 +400,12 @@ public:
 		{
 			GetFileSizeEx(m_data, (LARGE_INTEGER*)&size);
 		}
-		size_t count = size / sizeof(fileSample);
+		size_t count = size / sizeof(fileSample<T>);
 		if (count < 1) return;
 		HANDLE h = INVALID_HANDLE_VALUE;
 		DuplicateHandle(GetCurrentProcess(), m_data, GetCurrentProcess(), &h, GENERIC_READ, FALSE, 0);
 		if (h == INVALID_HANDLE_VALUE) return;
-		fileSample first = { 0 }, last = { 0 };
+		fileSample<T> first = { 0 }, last = { 0 };
 		DWORD read;
 		while(1)
 		{ 
@@ -399,7 +414,7 @@ public:
 			if (!ReadFile(h, &first, sizeof(first), &read, NULL) || (read != sizeof(first))) break;
 			if (count > 1)
 			{
-				pos = (count - 1) * sizeof(fileSample);
+				pos = (count - 1) * sizeof(fileSample<T>);
 				SetFilePointerEx(h, *(LARGE_INTEGER*)&pos, NULL, FILE_BEGIN);
 				if (!ReadFile(h, &last, sizeof(last), &read, NULL) || (read != sizeof(first))) break;
 			}
@@ -490,7 +505,8 @@ public:
 		{
 			if (wxGetFileLength(m_data))
 			{
-				SaveFile();
+				if (m_adcResolution) SaveFile<word>();
+				else SaveFile<byte>();
 			}
 		}
 		else
@@ -516,7 +532,8 @@ public:
 		else
 		{
 			OpenDataFile(dlg.GetPath());
-			ZoomAll();
+			if (m_adcResolution) ZoomAll<word>();
+			else ZoomAll<byte>();
 		}
 	}
 
@@ -541,16 +558,19 @@ public:
 		else
 		{
 			if (m_thread) return;
-			m_thread = new threadScope(this);
+			if (m_adcResolution) m_thread = new threadScope<word>(this);
+			else m_thread = new threadScope<byte>(this);
 			m_thread->Create();
 			m_thread->SetPriority(100);
-			m_main->WriteLine(wxT("scope\n"));
+			if(m_adcResolution) m_main->WriteLine(wxT("scope 16\n"));
+			else m_main->WriteLine(wxT("scope\n"));
 			wchar_t answer[64];
 			m_main->ReadLine(answer, 64, 100);
 			m_thread->Run();
 		}
 	}
 
+	template <typename T>
 	void SaveFile()
 	{
 		if (m_format == FORMAT_BINARY)
@@ -583,7 +603,7 @@ public:
 				wxString header = "time\tpin\tstate\n";
 				WriteFile(h2, (const char*)header, header.length() * sizeof(char), NULL, NULL);
 				SetFilePointer(h1, 0, NULL, FILE_BEGIN);
-				fileSample sample;
+				fileSample<T> sample;
 				DWORD read = 0;
 				wxString line;
 				if (ReadFile(h1, &sample, sizeof(sample), &read, NULL) && (read == sizeof(sample)))
@@ -635,6 +655,8 @@ public:
 				WriteFile(h, (const wchar_t*)line, line.length() * sizeof(wchar_t), NULL, NULL);
 			}
 		}
+		wxString line = wxString::Format(wxT("bits\t%ld\n"), m_main->m_pins.dataBits);
+		WriteFile(h, (const wchar_t*)line, line.length() * sizeof(wchar_t), NULL, NULL);
 		// last number is the start of the pins section
 		WriteFile(h, &len, sizeof(size_t), NULL, NULL);
 	}
@@ -674,7 +696,8 @@ public:
 	HANDLE       m_data;
 	wchar_t      m_data_name[_MAX_FNAME];
 	bool         m_isTempData;
-	threadScope* m_thread;
+	threadScopeBase* m_thread;
+	long         m_adcResolution;
 	long         m_periodIndex;
 	wxString     m_profilePrefix;
 	bool         m_save;
@@ -685,6 +708,8 @@ public:
 	size_t       m_lastsample; // used in viewer mode: offset of last sample
 
 	wxDECLARE_EVENT_TABLE();
+	void OnDropDownToolbarAdcRes(wxAuiToolBarEvent& evt);
+	void OnAdcResolution(wxCommandEvent& event);
 	void OnDropDownToolbarPeriod(wxAuiToolBarEvent& evt);
 	void OnPeriod(wxCommandEvent& event);
 	void OnDropDownToolbarPolarity(wxAuiToolBarEvent& evt);
@@ -696,6 +721,8 @@ public:
 };
 
 wxBEGIN_EVENT_TABLE(panelScope, formScope)
+EVT_AUITOOLBAR_TOOL_DROPDOWN(ID_TOOLADCRES, panelScope::OnDropDownToolbarAdcRes)
+EVT_MENU_RANGE(20006, 20007, panelScope::OnAdcResolution)
 EVT_AUITOOLBAR_TOOL_DROPDOWN(ID_TOOLPERIOD, panelScope::OnDropDownToolbarPeriod)
 EVT_MENU_RANGE(10000, 10026, panelScope::OnPeriod)
 EVT_AUITOOLBAR_TOOL_DROPDOWN(ID_TOOLPOLARITY, panelScope::OnDropDownToolbarPolarity)
@@ -707,10 +734,11 @@ EVT_MENU_RANGE(20003, 20005, panelScope::OnMode)
 EVT_NKDIGTIMERGRAPHEVENT(wxID_ANY, panelScope::OnGraphDisarm)
 wxEND_EVENT_TABLE()
 
-class fileSampleFifo : public std::vector<fileSample>
+template <typename T>
+class fileSampleFifo : public std::vector<fileSample<T> >
 {
 public:
-	typedef std::vector<fileSample> base;
+	typedef std::vector<fileSample<T> > base;
 	typedef base::iterator iterator;
 	typedef base::reverse_iterator riterator;
 
@@ -719,33 +747,33 @@ public:
 		, m_delay(delay)
 		, m_current(0)
 	{
-		resize(2048);
-		m_first = end();
-		m_last = end();
+		base::resize(2048);
+		m_first = base::end();
+		m_last = base::end();
 		m_count = 0;
 	}
 
-	void push(char channel, char state, size_t timestamp)
+	void push(char channel, T state, size_t timestamp)
 	{
 #ifdef _DEBUG
 //		OutputDebugString(wxString::Format(wxT("f %2d s %2u t %10lld\n"), channel, state, timestamp));
 #endif
 		// make room if full: write writes at least one
-		if ((m_count + 1) == size())
+		if ((m_count + 1) == base::size())
 		{
 			write(1);
 		}
 
 		// position of new sample
 		iterator new_last;
-		if (m_first == end())
+		if (m_first == base::end())
 		{
-			new_last = m_first = begin();
+			new_last = m_first = base::begin();
 		}
 		else
 		{
 			new_last = last() + 1;
-			if (new_last == end()) new_last = begin();
+			if (new_last == base::end()) new_last = base::begin();
 		}
 
 		// check out of order
@@ -754,7 +782,7 @@ public:
 		{
 			iterator p = s;
 			prev(p);
-			if (p == end()) break;
+			if (p == base::end()) break;
 			if (p->timestamp <= timestamp) break;
 			*s = *p; 
 			s = p;
@@ -784,14 +812,14 @@ public:
 	{
 		if (i == m_last)
 		{
-			i = end();
+			i = end<T>();
 		}
 		else
 		{
 			++i;
-			if (i == end())
+			if (i == end<T>())
 			{
-				i = begin();
+				i = begin<T>();
 			}
 		}
 	}
@@ -800,13 +828,13 @@ public:
 	{
 		if (i == m_first)
 		{
-			i = end();
+			i = base::end();
 		}
 		else
 		{
-			if (i == begin())
+			if (i == base::begin())
 			{
-				i = end();
+				i = base::end();
 			}
 			--i;
 		}
@@ -822,7 +850,7 @@ public:
 		bool found_recent = false;
 		if (i1 != m_last)
 		{
-			for (; (i2 != end()) && (i2 != m_last); ++i2)
+			for (; (i2 != base::end()) && (i2 != m_last); ++i2)
 			{
 				if ((m_current - i2->timestamp) < m_delay)
 				{
@@ -834,16 +862,16 @@ public:
 		size_t count = i2 - i1;
 		if (count)
 		{
-			WriteFile(m_file, &*i1, sizeof(fileSample) * count, &written, NULL);
+			WriteFile(m_file, &*i1, sizeof(fileSample<T>) * count, &written, NULL);
 			//OutputDebugString(wxString::Format(wxT("written %ld\n"), written));
 			m_count -= count;
 			m_first = i2;
-			if (m_first == end()) m_first = begin();
+			if (m_first == base::end()) m_first = base::begin();
 		}
 		if (m_count && !found_recent && (m_first > m_last))
 		{
 			// check the begin of the vector for older items
-			iterator i1 = begin();
+			iterator i1 = base::begin();
 			iterator i2 = i1;
 			for (; i2 != m_last; ++i2)
 			{
@@ -855,11 +883,11 @@ public:
 			count = i2 - i1;
 			if (count)
 			{
-				WriteFile(m_file, &*i1, sizeof(fileSample) * count, &written, NULL);
+				WriteFile(m_file, &*i1, sizeof(fileSample<T>) * count, &written, NULL);
 				//OutputDebugString(wxString::Format(wxT("written %ld\n"), written));
 				m_count -= count;
 				m_first = i2;
-				if (m_first == end()) m_first = begin();
+				if (m_first == base::end()) m_first = base::begin();
 			}
 		}
 	}
@@ -872,22 +900,23 @@ public:
 	size_t    m_current;
 };
 
-void* threadScope::Entry()
+template <typename T>
+void* threadScope<T>::Entry()
 {
 	NKCOMPORT* port = m_scope->m_main->m_port;
 
-	std::vector<byte> states;
+	std::vector<T> states;
 	states.resize(m_scope->m_main->m_pins.items.size());
 	for (auto& s : states) { s = -1; }
 
-	char serialData[sizeof(serialSample) * 1024];
-	serialSample* serSamples = (struct serialSample*)serialData;
-	fileSampleFifo fileData(m_scope->m_data,10000);
+	char serialData[sizeof(serialSample<T>) * 1024];
+	serialSample<T>* serSamples = (struct serialSample<T>*)serialData;
+	fileSampleFifo<T> fileData(m_scope->m_data,10000);
 
 	size_t offset = 0;
 
-	long read = NkComPort_ReadA(port, serialData, sizeof(serialSample), 400);
-	if ((read != sizeof(serialSample)) || (serSamples[0].channel != SYNC_CHANNEL) || (serSamples[0].state != SYNC_TICK))
+	long read = NkComPort_ReadA(port, serialData, sizeof(serialSample<T>), 400);
+	if ((read != sizeof(serialSample<T>)) || (serSamples[0].channel != SYNC_CHANNEL) || (serSamples[0].state != SYNC_TICK))
 	{
 		// to do warn scope that something went wrong
 		return NULL;
@@ -902,8 +931,8 @@ void* threadScope::Entry()
 		if (read <= 0) continue;
 		read += offset;
 #ifdef _DEBUG
-		//OutputDebugString(wxString::Format(wxT("read %ld\n"), read));
-		/*
+/*
+		OutputDebugString(wxString::Format(wxT("read %ld\n"), read));
 		BYTE* p = (BYTE*)serialData;
  		for(size_t i = 0; i < read; ++i)
 	    {
@@ -912,13 +941,13 @@ void* threadScope::Entry()
 		OutputDebugString(wxT("\n"));
 */
 #endif
-		long count = read / sizeof(serialSample);
+		long count = read / sizeof(serialSample<T>);
 		if (!count) continue;
-		serialSample* sentinel = serSamples + count;
-		for (serialSample* s = serSamples; s < sentinel; ++s)
+		serialSample<T>* sentinel = serSamples + count;
+		for (serialSample<T>* s = serSamples; s < sentinel; ++s)
 		{
 #ifdef _DEBUG
-//			OutputDebugString(wxString::Format(wxT("s %2d s %2d t %10lx\n"), s->channel, s->state, s->tick));
+//			OutputDebugString(wxString::Format(wxT("s %2d s %4X t %10ld\n"), s->channel, s->state, s->tick));
 #endif
 			if (s->tick < last_tick)
 			{
@@ -966,6 +995,7 @@ void* threadScope::Entry()
 						fileData.push(~i, states[i], m_time + s->tick * 10ULL); // use bitwise not channel to indicate this is a tick event
 					}
 					fileData.write(0);
+					continue;
 				}
 				if (s->state == SYNC_END)
 				{
@@ -974,7 +1004,6 @@ void* threadScope::Entry()
 					fileData.write(0);
 					return NULL;
 				}
-				continue;
 			}
 			if(s->channel < states.size())
 			{
@@ -982,7 +1011,7 @@ void* threadScope::Entry()
 			}
 			fileData.push(s->channel, s->state, m_time + s->tick * 10ULL);
 		}
-		long remain = read % sizeof(serialSample);
+		long remain = read % sizeof(serialSample<T>);
 		if (remain)
 		{
 			memmove(serialData, sentinel, remain);
@@ -1024,6 +1053,51 @@ size_t GetPeriod(long index)
 		return timeRes[index].period;
 	}
 	return US_PER_SECOND;
+}
+
+void panelScope::OnDropDownToolbarAdcRes(wxAuiToolBarEvent& evt)
+{
+	wxAuiToolBar* tb = static_cast<wxAuiToolBar*>(evt.GetEventObject());
+
+	tb->SetToolSticky(evt.GetId(), true);
+
+	// create the popup menu
+	wxMenu menuPopup;
+
+	menuPopup.Append(new wxMenuItem(&menuPopup, 20006, wxT("8-bit")));
+	if (m_main->m_adc_res != 8)
+	{
+		menuPopup.Append(new wxMenuItem(&menuPopup, 20007, wxString::Format(wxT("%ld-bit"), m_main->m_adc_res)));
+	}
+
+	// line up our menu with the button
+	wxRect rect = tb->GetToolRect(evt.GetId());
+	wxPoint pt = tb->ClientToScreen(rect.GetBottomLeft());
+	pt = ScreenToClient(pt);
+
+	PopupMenu(&menuPopup, pt);
+
+	// make sure the button is "un-stuck"
+	tb->SetToolSticky(evt.GetId(), false);
+}
+
+void panelScope::OnAdcResolution(wxCommandEvent& event)
+{
+	long index = event.GetId() - 20006;
+	if ((index < 0) || (index > 1)) return;
+	SetAdcResolution(index);
+}
+
+void panelScope::SetAdcResolution(long index)
+{
+	m_adcResolution = index;
+	m_tool->SetToolLabel(ID_TOOLADCRES, wxString::Format(wxT("%ld-bit"), index ? m_main->m_adc_res : 8));
+	m_main->m_profile->Write(m_profilePrefix + wxT("AdcRes"), index);
+	if (m_thread)
+	{
+		StartRecording(false);
+		StartRecording(true);
+	}
 }
 
 void panelScope::OnDropDownToolbarPeriod(wxAuiToolBarEvent& evt)

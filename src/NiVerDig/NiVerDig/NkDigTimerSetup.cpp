@@ -83,16 +83,21 @@ public:
 		// index is always static
 		SField::EFieldType type = field.type;
 
+		wxString value;
+		if (field_index < item.values.size())
+		{
+			value = item.values[field_index];
+		}
 		switch (type)
 		{
 		case SField::eNone:
 			control = new wxStaticText(m_panelSetup, wxID_ANY, wxEmptyString, wxDefaultPosition, wxSize(16, -1), 0);
 			break;
 		case SField::eStatic:
-			control = new wxStaticText(m_panelSetup, wxID_ANY, item.values[field_index], wxDefaultPosition, wxSize(16, -1), 0);
+			control = new wxStaticText(m_panelSetup, wxID_ANY, value, wxDefaultPosition, wxSize(16, -1), 0);
 			break;
 		case SField::eString:
-			control = new wxTextCtrl(m_panelSetup, wxID_ANY, item.values[field_index], wxDefaultPosition, wxSize(100, -1), 0);
+			control = new wxTextCtrl(m_panelSetup, wxID_ANY, value, wxDefaultPosition, wxSize(100, -1), 0);
 			control->Connect(wxEVT_TEXT, wxCommandEventHandler(panelSetup::m_textChange), new itemData(item_index, field_index), this);
 			::SendMessage(control->GetHWND(), EM_SETLIMITTEXT, (WPARAM)(field.higher ? field.higher: 10), 0);
 			break;
@@ -105,7 +110,7 @@ public:
 				cb->Connect(wxEVT_COMMAND_COMBOBOX_SELECTED, wxCommandEventHandler(panelSetup::m_OnCombobox), new itemData(item_index, field_index), this);
 				//cb->SetBackgroundColour(m_main->GetBackgroundColour());
 				long curVal = -1;
-				bool isNum = item.values[field_index].ToLong(&curVal);
+				bool isNum = value.ToLong(&curVal);
 				for (int64_t value = field.lower; value <= field.higher; ++value)
 				{
 					wxString str = wxString::Format(wxT("%lld"), value);
@@ -121,7 +126,7 @@ public:
 			}
 			else
 			{
-				control = new wxTextCtrl(m_panelSetup, wxID_ANY, item.values[field_index], wxDefaultPosition, wxSize(100, -1), 0);
+				control = new wxTextCtrl(m_panelSetup, wxID_ANY, value, wxDefaultPosition, wxSize(100, -1), 0);
 				control->Connect(wxEVT_TEXT, wxCommandEventHandler(panelSetup::m_textChange), new itemData(item_index, field_index), this);
 			}
 		}
@@ -197,11 +202,11 @@ public:
 				cb->Connect(wxEVT_COMMAND_COMBOBOX_SELECTED, wxCommandEventHandler(panelSetup::m_OnCombobox), new itemData(item_index, field_index), this);
 				//cb->SetBackgroundColour(m_main->GetBackgroundColour());
 				long curVal = -1;
-				bool isNum = item.values[field_index].ToLong(&curVal);
+				bool isNum = value.ToLong(&curVal);
 				for (size_t value_index = 0; value_index < values.size(); ++value_index)
 				{
 					cb->Append(values[value_index]);
-					if (!isNum && (values[value_index] == item.values[field_index]))
+					if (!isNum && (values[value_index] == value))
 					{
 						curVal = value_index;
 					}
@@ -209,7 +214,10 @@ public:
 				if (values.size() && (curVal == -1))
 				{
 					curVal = 0;
-					item.values[field_index] = values[0];
+					if (field_index < item.values.size())
+					{
+						item.values[field_index] = values[0];
+					}
 				}
 				cb->SetSelection(curVal);
 				control = cb;

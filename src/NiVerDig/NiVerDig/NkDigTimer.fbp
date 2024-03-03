@@ -2129,6 +2129,17 @@
                             <property name="tooltip">On/Off</property>
                             <event name="OnToolClicked">m_toolOnOnToolClicked</event>
                         </object>
+                        <object class="tool" expanded="1">
+                            <property name="bitmap">Load From File; res/Empty.png</property>
+                            <property name="context_menu">1</property>
+                            <property name="id">ID_TOOLADCRES</property>
+                            <property name="kind">wxITEM_NORMAL</property>
+                            <property name="label">8-bit</property>
+                            <property name="name">m_toolAdcRes</property>
+                            <property name="permission">protected</property>
+                            <property name="statusbar"></property>
+                            <property name="tooltip"></property>
+                        </object>
                         <object class="toolSeparator" expanded="0">
                             <property name="permission">protected</property>
                         </object>
@@ -2319,11 +2330,11 @@
                         </object>
                     </object>
                 </object>
-                <object class="sizeritem" expanded="1">
+                <object class="sizeritem" expanded="0">
                     <property name="border">5</property>
                     <property name="flag">wxALIGN_CENTER|wxTOP</property>
                     <property name="proportion">0</property>
-                    <object class="wxStaticText" expanded="1">
+                    <object class="wxStaticText" expanded="0">
                         <property name="BottomDockable">1</property>
                         <property name="LeftDockable">1</property>
                         <property name="RightDockable">1</property>

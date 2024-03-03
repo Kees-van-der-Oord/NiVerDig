@@ -6,39 +6,54 @@
 class panelScope;
 
 #pragma pack(push, r1, 1)   // n = 16, pushed to stack
+template <typename T>
 struct serialSample
 {
 	char channel;
-	byte state;
+	T    state;
 	unsigned long tick;  // in us
 };
 
+template <typename T>
 struct fileSample
 {
 	char   channel;
-	byte   state;
+	T      state;
 	size_t timestamp;
 };
 #pragma pack(pop, r1)
 
-class threadScope : public wxThread
+class threadScopeBase : public wxThread
 {
 public:
-	threadScope(panelScope* scope)
+	threadScopeBase()
 		: wxThread(wxTHREAD_JOINABLE)
-		, m_scope(scope)
 		, m_stop(false)
+		, m_time(0)
+	{
+	}
+
+	void* Entry() { return NULL; }
+
+	int64_t          m_time; // us since 1970
+	volatile bool    m_stop;
+};
+
+template <typename T> 
+class threadScope : public threadScopeBase
+{
+public:
+	threadScope(panelScope * scope)
+	: m_scope(scope)
 	{
 	}
 
 	void* Entry();
 
-	panelScope*   m_scope;
-	int64_t       m_time; // us since 1970
-	volatile bool m_stop;
-
+	panelScope* m_scope;
 };
 
+template <typename T>
 struct scopePages
 {
 	scopePages()
@@ -94,7 +109,7 @@ struct scopePages
 		}
 	}
 
-	fileSample* Map(size_t page, size_t count)
+	fileSample<T>* Map(size_t page, size_t count)
 	{
 		if (count < 1) count = 1;
 		Unmap();
@@ -114,15 +129,15 @@ struct scopePages
 		if (!m_map) return NULL;
 		m_mem = MapViewOfFile(m_map, FILE_MAP_READ, ((DWORD*)&m_offset)[1], ((DWORD*)&m_offset)[0], m_size);
 		if (!m_mem) return NULL;
-		size_t index_first = (m_offset + sizeof(fileSample)  - 1) / sizeof(fileSample);
-		size_t offset_first = index_first * sizeof(fileSample) - m_offset;
-		m_begin = (fileSample*)((unsigned char*)m_mem + offset_first);
-		size_t index_last = (m_offset + m_size) / sizeof(fileSample);
+		size_t index_first = (m_offset + sizeof(fileSample<T>)  - 1) / sizeof(fileSample<T>);
+		size_t offset_first = index_first * sizeof(fileSample<T>) - m_offset;
+		m_begin = (fileSample<T>*)((unsigned char*)m_mem + offset_first);
+		size_t index_last = (m_offset + m_size) / sizeof(fileSample<T>);
 		m_end = m_begin + (index_last - index_first);
 		return m_begin;
 	}
 
-	fileSample * MapNext(size_t count)
+	fileSample<T> * MapNext(size_t count)
 	{
 		if (count < 2) count = 2;
 		size_t filesize;
@@ -143,10 +158,10 @@ struct scopePages
 		size_t next_page = next_offset / m_mapPageSize;
 		if (!Map(next_page, count)) return NULL; // mapping failed ???
 		next_offset -= m_offset;
-		return (fileSample*)((unsigned char*)m_mem + next_offset);
+		return (fileSample<T>*)((unsigned char*)m_mem + next_offset);
 	}
 
-	fileSample* MapPrev(size_t count)
+	fileSample<T>* MapPrev(size_t count)
 	{
 		if (count < 2) count = 2;
 		if (m_offset == 0LL) return NULL;
@@ -156,8 +171,8 @@ struct scopePages
 		size_t next_page = next_offset / m_mapPageSize;
 		size_t sample = m_offset + ((unsigned char*)m_begin - (unsigned char*)m_mem);
 		if (!Map(next_page, count)) return NULL; // mapping failed ???
-		sample -= m_offset + sizeof(fileSample);
-		return (fileSample*)((unsigned char*)m_mem + sample);
+		sample -= m_offset + sizeof(fileSample<T>);
+		return (fileSample<T>*)((unsigned char*)m_mem + sample);
 	}
 
 	HANDLE m_file;
@@ -166,12 +181,13 @@ struct scopePages
 	void* m_mem;
 	size_t m_offset;
 	size_t m_size;
-	fileSample* m_begin;
-	fileSample* m_end;
+	fileSample<T>* m_begin;
+	fileSample<T>* m_end;
 	static DWORD m_mapPageSize;
 	size_t m_lastsample;
 };
 
+template <typename T>
 class scopeReader
 {
 public:
@@ -188,12 +204,12 @@ public:
 
 	void SetFile(HANDLE file, size_t lastsample) { m_file = file; m_pages.SetFile(file, lastsample); m_sample = NULL; }
 	void SetLastSample(size_t lastsample) { m_pages.SetLastSample(lastsample); }
-	fileSample* First(size_t first);
+	fileSample<T>* First(size_t first);
 	void Reset();
-	fileSample* Next();
-	fileSample* Prev();
+	fileSample<T>* Next();
+	fileSample<T>* Prev();
 
-	HANDLE      m_file;
-	scopePages  m_pages;
-	fileSample* m_sample;   // pointer to current sample
+	HANDLE         m_file;
+	scopePages<T>  m_pages;
+	fileSample<T>* m_sample;   // pointer to current sample
 };
