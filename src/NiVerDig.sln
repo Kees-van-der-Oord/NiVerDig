@@ -11,6 +11,9 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "NkComPort", "NkComPort\NkComPort\NkComPortV17.vcxproj", "{0D413BD6-F88C-4426-9E71-CE18C9A1B8FD}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "NkComPortCon", "NkComPort\NkComPortCon\NkComPortConV17.vcxproj", "{E77DC36A-0ADD-4DF9-8EB2-13C65BF6BFC4}"
+	ProjectSection(ProjectDependencies) = postProject
+		{0D413BD6-F88C-4426-9E71-CE18C9A1B8FD} = {0D413BD6-F88C-4426-9E71-CE18C9A1B8FD}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
