@@ -142,7 +142,10 @@ void frameMain::StoreSettings()
         m_profile->Write(wxT("Window/Height"), rcWnd.height);
     }
 
-    m_profile->Write(wxT("Port/Name"), m_lastPortName);
+    if (wxGetApp().m_mode == MODE_CONTROL)
+    {
+        m_profile->Write(wxT("Port/Name"), m_lastPortName);
+    }
     m_profile->Flush();
     wxFileName file(m_profileName);
     SetFileAttributesW(file.GetFullPath().c_str(), FILE_ATTRIBUTE_HIDDEN);
