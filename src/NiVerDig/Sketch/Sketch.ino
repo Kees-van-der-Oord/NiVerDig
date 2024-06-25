@@ -82,8 +82,10 @@ NiVerDig/Sketch:
 // for more storage, a 24LC256 can be attached to the SDA/SCL lines (A4/A5) (the nano every needs this)
 // Nano Every ATMega4809
 #if defined(ARDUINO_ARCH_MEGAAVR)
+#if defined(EX_EEPROM)
 #define EX_EEPROM_ADDR 0x50    // the 24LC256 base address (with all address pins to GND)
 #define EX_EEPROM_SIZE 0x8000  // 24LC256 is 256kbit = 32768 bytes
+#endif
 #endif
 
 #if defined(ARDUINO_FSP)
@@ -185,7 +187,7 @@ byte checkPwmPin(byte pin) { return ((pin >= 2) && (pin <= 13)) || ((pin >= 44) 
 #if !defined(EX_EEPROM_ADDR)
 #define HWPINCOUNT  22
 bool checkpin(byte pin) { return pin < HWPINCOUNT; }
-#define EEPROM_SIZE 256
+//#define EEPROM_SIZE 256 // already defined at include\avr\iom4809.h:5109
 #define PINCOUNT    6
 #define TASKCOUNT   5
 #else // defined(EX_EEPROM_ADDR)
@@ -695,8 +697,10 @@ void reset_pins()
 #else
     {"BNC in",    2, MODINP, 0},
     {"BNC out",   3, MODOUT, 0},
+#if defined(RED_LED_PIN)
+    {"LED",   RED_LED_PIN, MODOUT, 0},
+#endif
     {"button",    8, MODPUP, 0},
-
 #endif 
 
   };
@@ -712,7 +716,9 @@ void init_pins()
     struct pin & p = pins[pi];
     p.mode = p.startup_mode;
     byte pin = p.pin;
+#if defined(USEADC)
     if(p.mode == MODADC) pin += A0;
+#endif
     pinMode(pin, mode_values[p.mode]);
     update_pin_supports_intr(p);
   }
@@ -1428,7 +1434,11 @@ void cmd_tasks(byte cmd_index, byte argc, char**argv)
     {
       val = parse_index_or_name(argv[argi], (void*)&get_pin_name);
 #if defined(BUTTON_PIN)
+#if defined(USEADC)
       if ((val != MAX_BYTE) && (pins[val].pin == BUTTON_PIN) && (pins[val].mode != MODADC)) val = t.dstpin; // don't allow changing the button pin !
+#else
+      if ((val != MAX_BYTE) && (pins[val].pin == BUTTON_PIN)) val = t.dstpin; // don't allow changing the button pin !
+#endif
 #endif
     }
     else
@@ -2317,7 +2327,9 @@ inline void set_pin_mode(struct pin & p, byte mode)
 {
   p.mode = mode;
   byte pin = p.pin;
+#if defined(USEADC)
   if(p.mode == MODADC) pin += A0;
+#endif
   pinMode(pin, mode_values[mode]);
   if (mode_values[mode] == OUTPUT)
   {

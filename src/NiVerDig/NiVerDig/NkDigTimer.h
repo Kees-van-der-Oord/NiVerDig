@@ -90,8 +90,9 @@ struct SItems
     }
     wxString findMode(size_t item_index, size_t field_index)
     {
+        if (item_index >= fields.size()) return wxEmptyString;
         size_t mode_field = fields[field_index].mode_field;
-        if (mode_field == -1) return wxEmptyString;
+        if ((mode_field == -1) || (mode_field >= items[item_index].values.size())) return wxEmptyString;
         wxString mode = items[item_index].values[mode_field];
         for (auto i : fields[mode_field].modes)
         {
