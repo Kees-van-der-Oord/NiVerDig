@@ -157,7 +157,7 @@ bool checkpin(byte pin) { return pin < 14; }
 #define PINCOUNT  4
 #define TASKCOUNT 4
 #define PinStatus int
-#undef RED_LED_PIN   // nano model does not have LED mounted
+#define RED_LED_PIN 5      // used to blink when button is hold during boot
 #define ISRCOUNT 2
 byte isr_pins[ISRCOUNT] = {2, 3};
 byte checkPwmPin(byte pin) { return ((pin != 3) && (pin != 5) && (pin != 6) && (pin != 9) && (pin != 10)) ? MAX_BYTE : pin; }
@@ -942,7 +942,7 @@ void cmd_pins(byte cmd_index, byte argc, char **argv)
         val = MODOUT;
       }
     }
-#if defined(ADC)
+#if defined(USEADC)
     if(val == MODADC) 
     {
       if(checkAdcPin(p.pin) == MAX_BYTE) {

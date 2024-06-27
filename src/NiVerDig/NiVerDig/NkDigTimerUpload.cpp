@@ -130,12 +130,14 @@ int frameUploadSketch::GetModel(wxString& mask)
     int iModel = 0;
     curPort.MakeLower();
     if (curPort.Find(wxT("uno r3")) != wxNOT_FOUND) { model = wxT("unoR3"); iModel = 1; }
-    if (curPort.Find(wxT("mega 2560 r3")) != wxNOT_FOUND) { model = wxT("megaR3"); iModel = 2; }
-    if (curPort.Find(wxT("uno r4 minima")) != wxNOT_FOUND) { model = wxT("unoR4Minima"); iModel = 3; }
-    if (curPort.Find(wxT("uno r4 wifi")) != wxNOT_FOUND) { model = wxT("unoR4WiFi"); iModel = 4; }
+    else if (curPort.Find(wxT("mega 2560 r3")) != wxNOT_FOUND) { model = wxT("megaR3"); iModel = 2; }
+    else if (curPort.Find(wxT("uno r4 minima")) != wxNOT_FOUND) { model = wxT("unoR4Minima"); iModel = 3; }
+    else if (curPort.Find(wxT("uno r4 wifi")) != wxNOT_FOUND) { model = wxT("unoR4WiFi"); iModel = 4; }
+    else if (curPort.Find(wxT("nano every")) != wxNOT_FOUND) { model = wxT("nanoEvery"); iModel = 5; }
+    else if (curPort.Find(wxT("nano")) != wxNOT_FOUND) { model = wxT("nano"); iModel = 6; }
     if (iModel)
     {
-        mask = wxString::Format(iModel > 2 ? wxT("*.%s.ino.bin") : wxT("*.%s.ino.hex"), model);
+        mask = wxString::Format(((iModel == 2) || (iModel == 3)) ? wxT("*.%s.ino.bin") : wxT("*.%s.ino.hex"), model);
     }
     return iModel;
 }
@@ -195,7 +197,7 @@ void frameUploadSketch::m_BrowseOnButtonClick(wxCommandEvent& event)
         wxT("Select compiled Arduino Sketch"),
         hex.GetPath(),
         wxEmptyString,
-        wxT("All Sketches|*ino*|Uno R3 Sketches|*.unoR3.ino.hex|Mega R3 Sketches|*.megaR3.ino.hex|Uno R4 Minima Sketches|*.unoR4Minima.ino.bin|Uno R4 WiFi Sketches|*.unoR4WiFi.ino.bin"),
+        wxT("All Sketches|*ino*|Uno R3 Sketches|*.unoR3.ino.hex|Mega R3 Sketches|*.megaR3.ino.hex|Uno R4 Minima Sketches|*.unoR4Minima.ino.bin|Uno R4 WiFi Sketches|*.unoR4WiFi.ino.bin|Nano Every Sketches|*.nanoEvery.ino.hex|Nano Sketches|*.nano.ino.hex"),
         wxFD_OPEN | wxFD_FILE_MUST_EXIST);
 
     dlg.SetFilterIndex(m_choiceBoard->GetSelection());
@@ -284,19 +286,23 @@ void frameUploadSketch::StartUpload()
     wxFileName f(wxStandardPaths::Get().GetExecutablePath());
     wxString folder = f.GetPath();
     wxString hex = GetSketch();
+    wxString rate = wxT("115200");
     int iBoard = m_choiceBoard->GetSelection();
 
     wxString command;
-    if ((iBoard == 1) || (iBoard == 2))
+    if ((iBoard == 1) || (iBoard == 2) || (iBoard == 5) || (iBoard == 6))
     {
         wxString args;
+        wxString fuses;
         switch (iBoard)
         {
         case 1: args = wxT(" -patmega328p -carduino"); break;
         case 2: args = wxT("-patmega2560 -cwiring"); break;
+        case 5: args = wxT("-patmega4809 -cjtag2updi -e"); fuses = "\"-Ufuse2:w:0x01:m\" \"-Ufuse5:w:0xC9:m\" \"-Ufuse8:w:0x00:m\" {upload.extra_files}"; break;
+        case 6: args = wxT(" -patmega328p -carduino"); rate = wxT("57600");  break;
         default: return;
         }
-        command = wxString::Format(wxT("\"%s\\avrdude.exe\" -C\"%s\\avrdude.conf\" -v -V %s -P%s  -b115200 -D -Uflash:w:\"%s\":i"), folder, folder, args, m_port, hex);
+        command = wxString::Format(wxT("\"%s\\avrdude.exe\" -C\"%s\\avrdude.conf\" -v -V %s -P%s  -b%s -D \"-Uflash:w:\"%s\":i\" %s"), folder, folder, args, m_port, rate, hex,fuses);
     }
     else // R4 Minima or WiFi
     {
@@ -323,6 +329,11 @@ void frameUploadSketch::StartUpload()
     OutputDebugString(command); OutputDebugString(L"\n");
     m_progress.Clear();
     m_textProgress->Clear();
+    if ((iBoard == 5) || (iBoard == 6))
+    {
+        wxMessageBox(wxT("double click the reset button now"));
+
+    }
     m_updateTimer.Start(100);
 }
 

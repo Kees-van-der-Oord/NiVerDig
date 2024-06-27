@@ -2026,7 +2026,7 @@
                 </object>
             </object>
         </object>
-        <object class="Panel" expanded="1">
+        <object class="Panel" expanded="0">
             <property name="aui_managed">0</property>
             <property name="aui_manager_style">wxAUI_MGR_DEFAULT</property>
             <property name="bg"></property>
@@ -2049,16 +2049,16 @@
             <property name="window_extra_style"></property>
             <property name="window_name"></property>
             <property name="window_style">wxTAB_TRAVERSAL</property>
-            <object class="wxBoxSizer" expanded="1">
+            <object class="wxBoxSizer" expanded="0">
                 <property name="minimum_size"></property>
                 <property name="name">bSizer11</property>
                 <property name="orient">wxVERTICAL</property>
                 <property name="permission">none</property>
-                <object class="sizeritem" expanded="1">
+                <object class="sizeritem" expanded="0">
                     <property name="border">5</property>
                     <property name="flag">wxALL</property>
                     <property name="proportion">0</property>
-                    <object class="wxAuiToolBar" expanded="1">
+                    <object class="wxAuiToolBar" expanded="0">
                         <property name="BottomDockable">1</property>
                         <property name="LeftDockable">1</property>
                         <property name="RightDockable">1</property>
@@ -2132,7 +2132,7 @@
                         <object class="toolSeparator" expanded="0">
                             <property name="permission">protected</property>
                         </object>
-                        <object class="tool" expanded="1">
+                        <object class="tool" expanded="0">
                             <property name="bitmap">Load From File; res/Empty.png</property>
                             <property name="context_menu">1</property>
                             <property name="id">ID_TOOLADCRES</property>
@@ -2143,7 +2143,7 @@
                             <property name="statusbar"></property>
                             <property name="tooltip"></property>
                         </object>
-                        <object class="toolSeparator" expanded="1">
+                        <object class="toolSeparator" expanded="0">
                             <property name="permission">protected</property>
                         </object>
                         <object class="tool" expanded="0">
@@ -2708,7 +2708,7 @@
                                 <property name="caption"></property>
                                 <property name="caption_visible">1</property>
                                 <property name="center_pane">0</property>
-                                <property name="choices">&quot;&quot; &quot;Uno R3&quot; &quot;Mega 2560&quot; &quot;Uno R4 Minima&quot; &quot;Uno R4 WiF&quot;</property>
+                                <property name="choices">&quot;&quot; &quot;Uno R3&quot; &quot;Mega 2560&quot; &quot;Uno R4 Minima&quot; &quot;Uno R4 WiF&quot; &quot;Nano Every&quot; &quot;Nano&quot;</property>
                                 <property name="close_button">1</property>
                                 <property name="context_help"></property>
                                 <property name="context_menu">1</property>
