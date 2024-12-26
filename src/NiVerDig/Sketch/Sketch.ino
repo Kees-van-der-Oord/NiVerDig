@@ -63,6 +63,7 @@ NiVerDig/Sketch:
   version 13/35: 05-05-2023: fixed crash in COM port list - added ADC support
   version 14/38: 26-08-2023: added support for the Uno R4
   version 15/39: 24-02-2024: added support for R4 ADC 14 bits
+  version 16/40: 15-07-2024: added support for the Nano ESP32
 */
 
 #include <limits.h>
@@ -81,6 +82,7 @@ NiVerDig/Sketch:
 
 // for more storage, a 24LC256 can be attached to the SDA/SCL lines (A4/A5) (the nano every needs this)
 // Nano Every ATMega4809
+//#define EX_EEPROM
 #if defined(ARDUINO_ARCH_MEGAAVR)
 #if defined(EX_EEPROM)
 #define EX_EEPROM_ADDR 0x50    // the 24LC256 base address (with all address pins to GND)
@@ -88,7 +90,7 @@ NiVerDig/Sketch:
 #endif
 #endif
 
-#if defined(ARDUINO_FSP)
+#if defined(ARDUINO_FSP) || defined(ARDUINO_ARCH_ESP32)
 #undef PROGMEM
 #define PROGMEM
 #undef FS
@@ -116,6 +118,10 @@ SerialEEPROM eeprom;
 UnoR4Timer TimerGPT0(TIMER_MODE_ONE_SHOT, GPT_TIMER, 0, TIMER_SOURCE_DIV_16);
 #define Timer1 TimerGPT0
 #define AVR_TIMER1_LIMIT (MAX_LONG/6) // 3 ticks per us, half range
+#elif defined(ARDUINO_ARCH_ESP32)
+#include "ESP32AlarmTimer.h"
+ESP32Timer Timer1;
+#define AVR_TIMER1_LIMIT (MAX_LONG/2) // ESP timer is 64-bit, but all calculations in this sketch are in 32-bits ...
 #endif
 
 // if you change the PINCOUNT, struct pin, TASKCOUNT, struct task: add isrs and increment MODEL (because the EEPROM layout changes)
@@ -245,6 +251,21 @@ byte isr_pins[ISRCOUNT] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13};
 #define BAUD_RATE  250000
 byte checkPwmPin(byte pin) { return pin; }
 
+// Nano ESP32
+#elif defined(ARDUINO_ARCH_ESP32)
+#define HWPINCOUNT 24
+bool checkpin(byte pin) { return pin < 24; }
+#define PINCOUNT  24
+#define TASKCOUNT 52
+#define EEPROM_SIZE (4 + PINCOUNT*16 + TASKCOUNT*36)
+#define PinStatus int
+#define ISRCOUNT 24
+byte isr_pins[ISRCOUNT] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23};
+#undef BAUD_RATE
+#define BAUD_RATE  1000000
+byte checkPwmPin(byte pin) { return pin; }
+#define BOOTTIME 3000
+
 #else
 #define HWPINCOUNT 100
 bool checkpin(byte pin) { return true; }
@@ -255,6 +276,10 @@ bool checkpin(byte pin) { return true; }
 byte isr_pins[1] = {-1};
 byte checkPwmPin(byte pin) { return pin; }
 
+#endif
+
+#if !defined(BOOTTIME)
+#define BOOTTIME 2100
 #endif
 
 // redefine the IDE EEPROM_SIZE definition when there is an external EEPROM
@@ -341,6 +366,7 @@ void cmd_reset(byte cmd_index, byte argc, char**argv);
 
 int  init_input();
 int  read_input();
+char * next_input();
 void process_input();
 void check_eeprom_usage();
 
@@ -362,6 +388,9 @@ void setup()
   check_eeprom_usage();
 #if defined(EX_EEPROM_ADDR)
   eeprom.init(EX_EEPROM_ADDR, EX_EEPROM_SIZE);
+#elif defined(ARDUINO_ARCH_ESP32)
+   EEPROM.begin(EEPROM_SIZE);
+   delay(500);
 #endif
 
   // test micrros and interrupts
@@ -458,7 +487,7 @@ struct pin
   volatile unsigned int  state;      // adc delivers 10 bits
   volatile unsigned long tick;       // us time-stamp of change
   volatile unsigned char changed;    // flag to indicate that state changed
-}; // 23 bytes on 16-bits AVR, 25 bytes on 32-bits Renesas
+}; // 14 bytes saved
 
 // these var are initialized in reset_pins() that is called by Setup();
 byte   pin_count;
@@ -1082,7 +1111,7 @@ struct task {
   unsigned long nexttick;            // next moment of action (us)
   byte          triggered;           // NOT_TRIGGERED, TICK_TRIGGERED, START_TRIGGERED, START_TICK_TRIGGERED
   byte          changed;             // status has changed during interrupt
-}; // 45 bytes on 16-bits AVR and on 32-bits Renesas
+}; //  stored 31 bytes
 
 // these vars are initialized in reset_tasks() called from Setup()
 byte task_count;
@@ -1603,6 +1632,41 @@ struct disable_interrupts
   }
 };
 
+#elif defined(ARDUINO_ARCH_ESP32)
+
+bool intr_on = true;
+
+bool interrupts_are_disabled() {
+  return !intr_on;
+}
+
+struct disable_interrupts
+{
+  uint32_t intr_was_on;
+
+  disable_interrupts()
+  {
+    intr_was_on = intr_on;
+    //noInterrupts();
+    intr_on = false;
+  }
+
+  ~disable_interrupts()
+  {
+    if(intr_was_on) 
+    {
+      intr_on = true;
+      //interrupts();
+    }
+  }
+
+  bool interrupts_were_disabled()
+  {
+    return !intr_was_on;
+  }
+};
+
+
 #else //AVR
 
 bool interrupts_are_disabled() {
@@ -1880,6 +1944,9 @@ void set_next_timer()
 
 #if defined(ARDUINO_ARCH_RENESAS_UNO) || defined(ARDUINO_PORTENTA_C33)
 void timer_interrupt_callback(timer_callback_args_t *) {
+  disable_interrupts di;
+#elif defined(ARDUINO_ARCH_ESP32)
+void timer_interrupt_callback(void) {
   disable_interrupts di;
 #else
 void timer_interrupt_callback() {
@@ -2736,7 +2803,7 @@ void check_eeprom_usage()
   if (EEPROM_USAGE > EEPROM_SIZE) {
     Serial.print(F("EEPROM usage ")); Serial.print(EEPROM_USAGE); Serial.print(F(" exceeds size ")); Serial.print(EEPROM_SIZE); Serial.print(F(EOL));
     byte len = PINSIZE;
-    Serial.print(F("pin  memory size: ")); Serial.print(len);
+    Serial.print(F("pin  memory size: ")); Serial.print(len); Serial.print(F(EOL));
     len = TASKSIZE;
     Serial.print(F("task memory size: ")); Serial.print(len); Serial.print(F(EOL));
   }
@@ -2746,16 +2813,25 @@ bool check_model_and_revision()
 {
   byte model;
   byte revision;
+  bool changed;
   EEPROM.get(0, model);
   if (model != MODEL)
   {
     EEPROM.put(0, (byte)MODEL);
+    changed = true;
   }
   EEPROM.get(sizeof(byte), revision);
   if (revision != REVISION)
   {
     EEPROM.put(sizeof(byte), (byte)REVISION);
+    changed = true;
   }
+#if defined(ARDUINO_ARCH_ESP32)
+  if(changed)
+  {
+    EEPROM.commit();
+  }
+#endif
   return (model == MODEL) && (revision == REVISION);
 }
 
@@ -2811,7 +2887,11 @@ void store_bytes(int & address, void * vmemory, int count)
   byte * memory = (byte*)vmemory;
   for (; count; --count, ++memory, ++address)
   {
+#if defined(ARDUINO_ARCH_ESP32)
+    EEPROM.put(address, *memory);
+#else
     EEPROM.update(address, *memory);
+#endif
   }
 }
 
@@ -2833,6 +2913,9 @@ void store_pins()
   {
     store_bytes(address, pins + pi, len);
   }
+#if defined(ARDUINO_ARCH_ESP32)
+  EEPROM.commit();
+#endif
 }
 
 void restore_pins()
@@ -2859,6 +2942,9 @@ void store_tasks()
   {
     store_bytes(address, tasks + ti, len);
   }
+#if defined(ARDUINO_ARCH_ESP32)
+  EEPROM.commit();
+#endif
 }
 
 void restore_tasks()
@@ -3276,20 +3362,19 @@ void cmd_set_var(byte cmd_index, byte argc, char**argv)
 
 // serial input
 #define INPUT_SIZE 128
-char input[INPUT_SIZE] = "";
-int  input_cursor = 0;
-int  input_complete = 0;
-char * input_command;
+char    input[INPUT_SIZE] = "";
+int     input_cursor = 0;
+int     input_complete = 0;
+char *  input_command;
 #define MAX_ARG_COUNT 16
-char * argv[MAX_ARG_COUNT];
-byte   argc = 0;
-//char buf[INPUT_SIZE];
-char prev_c = -1;
+char *  argv[MAX_ARG_COUNT];
+byte    argc = 0;
+char    prev_c = -1;
 
 int init_input()
 {
   Serial.begin(BAUD_RATE);
-  while (!Serial && (millis() < 2100)) {}
+  while (!Serial && (millis() < BOOTTIME)) {}
   return 0;
 }
 
@@ -3331,6 +3416,11 @@ void reset_input()
 {
   input_cursor = 0;
   input[0] = 0;
+}
+
+char * next_input()
+{
+  return input;
 }
 
 void parse_input()
