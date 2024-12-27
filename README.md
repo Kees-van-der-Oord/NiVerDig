@@ -378,17 +378,23 @@ When accidentally shortcutting a pin that is configured for output, the line dri
 
 Uno R3, Mega R3 or Uno R4 ?
 The Uno R4 has more memory which allows more pin and task definitions.
-The Mega 2560 R3 has has more pins (52) thatn the Uno R4 (20).
+The Mega 2560 R3 has has more pins (52) than the Uno R4 (20).
 The Uno R3 performs in all aspects less than the R4, so only use the R3 if you already own one.
+The Nano ESP32 outperforms the Uno and Mega variants, but the digital pins output/accept only 3.3 V instead of 5 V.
 The capabilities of the Uno R3,  Mega 2560 R3 and Uno R4:
 
-|              | Uno R3 | Mega 2560 R3 | Uno R4 |
+|              | Uno R3 | Mega 2560 R3 | Uno R4 | Nano ESP32 |
 | ------------ | --- | ---- | ---- |
-| Frequency    | 16 MHz | 16 MHz | 48 MHz |
-| pins supporting interrupts | 2: pins 2,3 | 6: pins 2,3,18,19,20,21 | 14: all digital pins |
-| dynamic memory | 2048 bytes | 8192 bytes | 32767 bytes |
-| NiVerDig pin definitions | 4 | 52 | 20 |
-| NiVerDig task definitions | 8 | 52 | 52 |
+| Frequency    | 16 MHz | 16 MHz | 48 MHz | 240 MHz |
+| Digital Level | 5 V | 5 V | 5V | 3.3 V |
+| pins supporting interrupts | 2: pins 2,3 | 6: pins 2,3,18,19,20,21 | 14: all digital pins | 14: all digital pins |
+| ROM | 2048 bytes | 8192 bytes | 32767 bytes | 384 kB |
+| SRAM | 2 kB | 1 kB | 4 kB | 512 kB |
+| EEPROM/Flash | 1kB/32 kB | 1 kB | 4 kB | 16 MB |
+| NiVerDig pin definitions | 4 | 52 | 20 | 24 |
+| NiVerDig task definitions | 8 | 52 | 52 | 52 |
+| Timer granularity | 4 us | 4 us | 4 us | 1 us |
+| Interrupt delay | 17 us | 17 us | 17 us | 13 us |
 
 The NiVerDig sketch allows to define the pins freely, but on a factory reset (button pressed 5 seconds on boot), the default pin definitions are restored.
 To limit the current on shortcut of the TTL ports, 1 kâ„¦ resister can be used. This will have no significant effect on the speed performance. The LED is connected with resisters that limit the emission to non-disturbing weak level. Determine the best values by trial and error.
