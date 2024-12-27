@@ -419,6 +419,7 @@ SVID_PID vid_pid[]
     {ARDUINO_VID, 0x0068, L"Portenta C33"},
     {ARDUINO_VID, 0x006D, L"Uno R4 WiFi DFU"},
     {ARDUINO_VID, 0x0069, L"Uno R4 Minima"},
+    {ARDUINO_VID, 0x0070, L"Nano ESP32"},
     {ARDUINO_VID, 0x0242, L"Genuino Mega2560-R3"},
     {ARDUINO_VID, 0x0243, L"Genuino Uno-R3"},
     {ARDUINO_VID, 0x0369, L"Uno R4 Minima DFU"},

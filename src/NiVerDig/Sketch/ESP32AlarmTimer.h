@@ -14,8 +14,8 @@ class ESP32Timer
 
   ~ESP32Timer()
   {
+    timerAlarmDisable(m_timer);
     timerDetachInterrupt(m_timer);
-    timerStop(m_timer);
     timerEnd(m_timer);
   }
 

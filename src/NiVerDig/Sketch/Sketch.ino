@@ -124,6 +124,13 @@ ESP32Timer Timer1;
 #define AVR_TIMER1_LIMIT (MAX_LONG/2) // ESP timer is 64-bit, but all calculations in this sketch are in 32-bits ...
 #endif
 
+#define ISR_ATTR
+
+#if defined(ARDUINO_ARCH_ESP32)
+#undef ISR_ATTR
+#define ISR_ATTR ARDUINO_ISR_ATTR
+#endif
+
 // if you change the PINCOUNT, struct pin, TASKCOUNT, struct task: add isrs and increment MODEL (because the EEPROM layout changes)
 #define MODEL       3
 #define REVISION    2
@@ -1142,7 +1149,11 @@ void init_tasks(byte b, byte e)
   {
     struct task & t = tasks[ti];
     t.counter = CURIDLE;
+#if defined(ARDUINO_ARCH_ESP32)
+    t.triggered = NOT_TRIGGERED; // setPeriod fails when called from the timer ISR ?
+#else    
     t.triggered = (t.options & OPTINTERRUPT) ? TICK_TRIGGERED : NOT_TRIGGERED;
+#endif
   }
   if (!in_setup && !halt)
   {
@@ -1567,7 +1578,11 @@ inline void arm_task(byte ti)
 {
   struct task & t = tasks[ti];
   t.counter = CURARMED;
-  t.triggered = (t.options & OPTINTERRUPT) ? TICK_TRIGGERED : NOT_TRIGGERED;
+#if defined(ARDUINO_ARCH_ESP32)
+    t.triggered = NOT_TRIGGERED; // setPeriod fails when called from the timer ISR ?
+#else    
+    t.triggered = (t.options & OPTINTERRUPT) ? TICK_TRIGGERED : NOT_TRIGGERED;
+#endif
   t.changed = true;
   if (((t.trigger == TRGHIGH) && pins[t.srcpin].state) ||
       ((t.trigger == TRGLOW)  && !pins[t.srcpin].state) ||
@@ -1938,6 +1953,7 @@ void set_next_timer()
       next_timer_task = NOTASK;
       period = AVR_TIMER1_LIMIT;
     }
+//Serial.print(__LINE__); Serial.print(" period "); Serial.println(period);
     Timer1.setPeriod(period);
   }
 }
@@ -2079,7 +2095,7 @@ void test_interrupts()
 #define disable_interrupts_during_isr();
 #endif
 
-#define PINISR(N) void isr##N(void) { \
+#define PINISR(N) void ISR_ATTR isr##N(void) { \
   disable_interrupts_during_isr();\
   detachInterrupt(digitalPinToInterrupt(isr_pins[N])); \
   handle_pin_interrupt(N); \
@@ -2272,6 +2288,9 @@ inline void set_task_isr(byte ti)
 
 inline bool task_enable_interrupt(byte ti)
 {
+  #if defined(ARDUINO_ARCH_ESP32)
+    return false; // the Timer.setPeriod does not work correctly in the ISR: might also need detachInterrupt ???
+  #endif
   struct task & t = tasks[ti];
   if (!(t.options & OPTINTERRUPT)) return false;
   if ((t.trigger == TRGUP) || (t.trigger == TRGDOWN) || (t.trigger == TRGANY))
