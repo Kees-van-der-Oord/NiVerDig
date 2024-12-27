@@ -24,7 +24,7 @@ class ESP32Timer
     ) 
   {
     timerAlarmWrite(m_timer, counts, true);
-    timerStart(m_timer); // the Timer0 library starts the counter when setting the period: for compatibility we do the same here
+    timerAlarmEnable(m_timer); // the Timer0 library starts the counter when setting the period: for compatibility we do the same here
   }
 
   void initialize() {
@@ -38,7 +38,7 @@ class ESP32Timer
 
   void stop()
   {
-    timerStop(m_timer);
+    timerAlarmDisable(m_timer);
   }
 
   hw_timer_t* m_timer;

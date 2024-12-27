@@ -63,7 +63,7 @@ NiVerDig/Sketch:
   version 13/35: 05-05-2023: fixed crash in COM port list - added ADC support
   version 14/38: 26-08-2023: added support for the Uno R4
   version 15/39: 24-02-2024: added support for R4 ADC 14 bits
-  version 16/40: 15-07-2024: added support for the Nano ESP32
+  version 16/40: 27-12-2024: added support for the Nano ESP32
 */
 
 #include <limits.h>
@@ -1647,7 +1647,7 @@ struct disable_interrupts
   disable_interrupts()
   {
     intr_was_on = intr_on;
-    //noInterrupts();
+    noInterrupts();
     intr_on = false;
   }
 
@@ -1656,7 +1656,7 @@ struct disable_interrupts
     if(intr_was_on) 
     {
       intr_on = true;
-      //interrupts();
+      interrupts();
     }
   }
 
@@ -3429,7 +3429,7 @@ void parse_input()
   byte equal_eaten;
   byte bracket_eaten;
   byte tab_eaten;
-  memcpy(argv, 0, sizeof(argv));
+  memset(argv, 0, sizeof(argv));
   argc = 0;
   // read away all spaces
   for (i = 0; i < input_cursor; ++i) if (!isspace(input[i])) break;
@@ -3812,6 +3812,11 @@ byte parse_options(const char * s, const char *info)
 #if defined(ARDUINO_FSP)
 void print_free_memory(int line)
 {
+}
+#elif  defined(ARDUINO_ARCH_ESP32)
+void print_free_memory(int line)
+{
+  Serial.print(F("free memory on line ")); Serial.print(line); Serial.print(F(" : ")); Serial.print(ESP.getFreeHeap()); Serial.print(F(EOL));
 }
 #else // AVR
 extern void *__brkval;
