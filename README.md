@@ -7,6 +7,9 @@ NiVerDig is a versatile digital signal controller scope based on an Arduino Uno 
 
 Do you own an Arduino Uno R3/R4 or Mega 2560 R3 that you would program with the NiVerDig sketch ? Install the [NiVerDig package](https://github.com/Kees-van-der-Oord/NiVerDig/releases); start the NiVerDig program and select 'Port | Upload NiVerDig Sketch to Uno/Mega'. If you don't own one yet, jump to the [Build your own NiVerDig](#build-your-own-niverdig) section to get inspired to build one. For users of the Nikon NIS-Elements microscope control program, there is a section [NIS macros](#nis-macro) with examples how to integrate control of the NiVerDig in NIS.
 
+## Nano ESP32
+The latest commits introduce support for the ESP32. All basic functions work as expected, but my attempts to use hardware interrupts failed until now: it looks like programming the AlarmTimer during a HW interrupt fails. In addition the framework is not yet stable: after ~ 10 minutes of use the chip freezes. Will be continued .... For now, use the R4 !
+
 ## Control Panel
 The main page of the NiVerDig program is the Control Panel. The first dropdown button on the toolbar allows selecting the COM port of the NiVerDig Arduino board. After opening the port of the device, the Control Panel becomes active. If the connection fails, select â€˜Upload NiVerDig Sketch to Uno/Megaâ€™ to program the Arduino with the sketch. The Control panel shows all defined Pins on the top row and all defined Tasks on the bottom row.
 
