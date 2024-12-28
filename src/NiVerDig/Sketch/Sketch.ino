@@ -272,6 +272,8 @@ byte isr_pins[ISRCOUNT] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,
 #define BAUD_RATE  1000000
 byte checkPwmPin(byte pin) { return pin; }
 #define BOOTTIME 3000
+byte checkAdcPin(byte pin) { if(pin > 7) return MAX_BYTE; return pin; }
+#define USEADC
 
 #else
 #define HWPINCOUNT 100
@@ -1815,6 +1817,8 @@ void cmd_adc_res(byte cmd_index, byte argc, char**argv)
 {
 #if defined(ARDUINO_ARCH_RENESAS_UNO) || defined(ARDUINO_PORTENTA_C33)
   Serial.print("14" EOL);
+#elif defined(ARDUINO_ARCH_ESP32)
+  Serial.print("12" EOL);
 #else
   Serial.print("10" EOL);
 #endif  
@@ -2495,11 +2499,8 @@ inline void start_adc(struct pin & p)
   byte pin = p.pin;
 
  // from analogRead()
-#if defined(analogPinToChannel)
 #if defined(__AVR_ATmega32U4__)
 	if (pin >= 18) pin -= 18; // allow for channel or pin numbers
-#endif
-	pin = analogPinToChannel(pin);
 #elif defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
 	if (pin >= 54) pin -= 54; // allow for channel or pin numbers
 #elif defined(__AVR_ATmega32U4__)
@@ -2508,6 +2509,9 @@ inline void start_adc(struct pin & p)
 	if (pin >= 24) pin -= 24; // allow for channel or pin numbers
 #else
 	if (pin >= 14) pin -= 14; // allow for channel or pin numbers
+#endif
+#if defined(analogPinToChannel)
+	pin = analogPinToChannel(pin);
 #endif
 
 #if defined(DEBUG)
@@ -2611,6 +2615,68 @@ inline void start_adc(struct pin & p)
   }
 }
 
+#endif
+
+#if defined(ARDUINO_ARCH_ESP32)
+
+inline void start_adc(struct pin & p)
+{
+/*
+  adcStart(pin);
+  while(adcBusy(pin)) {}
+  int32_t reading = resultadcEnd(pin); 
+*/
+/* this freezes the unit after some while ...*/
+  for(byte pi = 0; pi < pin_count; ++pi)
+  {
+      struct pin & p = pins[pi];
+      if(p.mode == MODADC)
+      {
+        uint16_t state = analogRead(p.pin + A0);
+        if(state != p.state)
+        {
+          p.state = state;
+          p.tick = micros();
+          p.changed = true;
+        }
+      }
+  }
+}
+
+/*
+  byte adc_pins[8];
+  byte adc_count = 0;
+  for(byte pi = 0; pi < pin_count; ++pi)
+  {
+    struct pin & p = pins[pi];
+    if(p.mode == MODADC)
+    {
+        adc_pins[adc_count] = pi;
+        ++adc_count;
+        adcStart(p.pin + A0);
+    }
+  }
+  for(byte i = 0; i < adc_count; ++i)
+  {
+    byte pi = adc_pins[i];
+    if(pi != MAX_BYTE)
+    {
+      struct pin & p = pins[pi];
+      if(!adcBusy(p.pin + A0))
+      {
+        int16_t state = resultadcEnd(p.pin + A0); 
+        if(state != p.state)
+        {
+          p.state = state;
+          p.tick = micros();
+          p.changed = true;
+        }
+        adc_pins[i] = MAX_BYTE;
+      }
+    }
+  }
+}
+*/
 #endif
 
 #endif // USEADC
@@ -3084,11 +3150,13 @@ void send_scope_data()
 #if defined(USEADC)
     if(p.mode == MODADC) 
     {
-#if defined(ARDUINO_ARCH_RENESAS_UNO) || defined(ARDUINO_PORTENTA_C33)
+#if defined(ARDUINO_ARCH_RENESAS_UNO) || defined(ARDUINO_PORTENTA_C33) // 14 bits
       Serial.write(pi); Serial.write(byte(p.state>>6)); SerialWriteULong(p.tick);
-#else// Renesas
+#elif defined(ARDUINO_ARCH_ESP32) // 12 bits
+      Serial.write(pi); Serial.write(byte(p.state>>4)); SerialWriteULong(p.tick);
+#else// Renesas: 10 bits
       Serial.write(pi); Serial.write(byte(p.state>>2)); SerialWriteULong(p.tick);
-#endif // Renesas
+#endif
     } 
     else    
 #endif

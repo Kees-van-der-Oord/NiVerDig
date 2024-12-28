@@ -75,6 +75,18 @@ bool arduinoDevices::Add(arduinoDevice& device)
     return true;
 }
 
+// this enum corresponds to the entries of the NkDigTimer.fbp formUploadSketch m_choiceBoard field
+enum models
+{
+    modelUnoR3= 1,
+    modelMegaR3= 2,
+    modelUnoR4Minima= 3,
+    modelUnoR4WiFi = 4,
+    modelNanoEvery = 5,
+    modelNano= 6,
+    modelNanoESP32 = 7
+};
+
 void frameUploadSketch::UpdateComPorts()
 {
 	wxString curSel = m_comboPort->GetValue();
@@ -129,15 +141,16 @@ int frameUploadSketch::GetModel(wxString& mask)
     wxString model;
     int iModel = 0;
     curPort.MakeLower();
-    if (curPort.Find(wxT("uno r3")) != wxNOT_FOUND) { model = wxT("unoR3"); iModel = 1; }
-    else if (curPort.Find(wxT("mega 2560 r3")) != wxNOT_FOUND) { model = wxT("megaR3"); iModel = 2; }
-    else if (curPort.Find(wxT("uno r4 minima")) != wxNOT_FOUND) { model = wxT("unoR4Minima"); iModel = 3; }
-    else if (curPort.Find(wxT("uno r4 wifi")) != wxNOT_FOUND) { model = wxT("unoR4WiFi"); iModel = 4; }
-    else if (curPort.Find(wxT("nano every")) != wxNOT_FOUND) { model = wxT("nanoEvery"); iModel = 5; }
-    else if (curPort.Find(wxT("nano")) != wxNOT_FOUND) { model = wxT("nano"); iModel = 6; }
+    if (curPort.Find(wxT("uno r3")) != wxNOT_FOUND) { model = wxT("unoR3"); iModel = modelUnoR3; }
+    else if (curPort.Find(wxT("mega 2560 r3")) != wxNOT_FOUND) { model = wxT("megaR3"); iModel = modelMegaR3; }
+    else if (curPort.Find(wxT("uno r4 minima")) != wxNOT_FOUND) { model = wxT("unoR4Minima"); iModel = modelUnoR4Minima; }
+    else if (curPort.Find(wxT("uno r4 wifi")) != wxNOT_FOUND) { model = wxT("unoR4WiFi"); iModel = modelUnoR4WiFi; }
+    else if (curPort.Find(wxT("nano every")) != wxNOT_FOUND) { model = wxT("nanoEvery"); iModel = modelNanoEvery; }
+    else if (curPort.Find(wxT("nano esp32")) != wxNOT_FOUND) { model = wxT("nanoESP32"); iModel = modelNanoESP32; }
+    else if (curPort.Find(wxT("nano")) != wxNOT_FOUND) { model = wxT("nano"); iModel = modelNano; }
     if (iModel)
     {
-        mask = wxString::Format(((iModel == 2) || (iModel == 3)) ? wxT("*.%s.ino.bin") : wxT("*.%s.ino.hex"), model);
+        mask = wxString::Format(((iModel == modelUnoR4Minima) || (iModel == modelUnoR4WiFi) || (iModel == modelNanoESP32)) ? wxT("*.%s.ino.bin") : wxT("*.%s.ino.hex"), model);
     }
     return iModel;
 }
@@ -161,7 +174,7 @@ void frameUploadSketch::UpdateHexFile()
     wxDir::GetAllFiles(folder, &hexFiles, mask, wxDIR_FILES);
     if (!hexFiles.size())
     {
-        folder = wxFileName(wxStandardPaths::Get().GetExecutablePath()).GetPath() + wxT("\\hex");
+        folder = wxFileName(wxStandardPaths::Get().GetExecutablePath()).GetPath() + wxT("\\..\\..\\NiVerDig\\Hex");
         wxDir::GetAllFiles(folder, &hexFiles, mask, wxDIR_FILES);
     }
     m_sketch->Clear();
@@ -290,16 +303,16 @@ void frameUploadSketch::StartUpload()
     int iBoard = m_choiceBoard->GetSelection();
 
     wxString command;
-    if ((iBoard == 1) || (iBoard == 2) || (iBoard == 5) || (iBoard == 6))
+    if ((iBoard == modelUnoR3) || (iBoard == modelMegaR3) || (iBoard == modelNanoEvery) || (iBoard == modelNano))
     {
         wxString args;
         wxString fuses;
         switch (iBoard)
         {
-        case 1: args = wxT(" -patmega328p -carduino"); break;
-        case 2: args = wxT("-patmega2560 -cwiring"); break;
-        case 5: args = wxT("-patmega4809 -cjtag2updi -e"); fuses = "\"-Ufuse2:w:0x01:m\" \"-Ufuse5:w:0xC9:m\" \"-Ufuse8:w:0x00:m\" {upload.extra_files}"; break;
-        case 6: args = wxT(" -patmega328p -carduino"); rate = wxT("57600");  break;
+        case modelUnoR3: args = wxT(" -patmega328p -carduino"); break;
+        case modelMegaR3: args = wxT("-patmega2560 -cwiring"); break;
+        case modelNanoEvery: args = wxT("-patmega4809 -cjtag2updi -e"); fuses = "\"-Ufuse2:w:0x01:m\" \"-Ufuse5:w:0xC9:m\" \"-Ufuse8:w:0x00:m\" {upload.extra_files}"; break;
+        case modelNano: args = wxT(" -patmega328p -carduino"); rate = wxT("57600");  break;
         default: return;
         }
         command = wxString::Format(wxT("\"%s\\avrdude.exe\" -C\"%s\\avrdude.conf\" -v -V %s -P%s  -b%s -D \"-Uflash:w:\"%s\":i\" %s"), folder, folder, args, m_port, rate, hex,fuses);
@@ -309,8 +322,9 @@ void frameUploadSketch::StartUpload()
         wxString vid_pid;
         switch (iBoard)
         {
-        case 3: vid_pid = wxT("0x2341:0x0069,:0x0369"); break;
-        case 4: vid_pid = wxT("0x2341:0x1002,:0x006D"); break;
+        case modelUnoR4Minima: vid_pid = wxT("0x2341:0x0069,:0x0369"); break;
+        case modelUnoR4WiFi: vid_pid = wxT("0x2341:0x1002,:0x006D"); break;
+        case modelNanoESP32: vid_pid = wxT("0x2341:0x0070"); break;
         }
         wxString devnum = device.dev_num;
         if (devnum.length())
@@ -319,7 +333,7 @@ void frameUploadSketch::StartUpload()
         }
         if(!command.length())
         {
-            // assume there is only one Uno R4 connected ?
+            // assume there is only one DFU device connected ?
             command = wxString::Format(wxT("\"%s\\dfu-util.exe\" --device %s -D \"%s\" -a0 -Q"), folder, vid_pid, hex);
         }
     }
