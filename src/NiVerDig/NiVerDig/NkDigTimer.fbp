@@ -2474,7 +2474,7 @@
             <property name="size">719,269</property>
             <property name="style">wxDEFAULT_DIALOG_STYLE</property>
             <property name="subclass">; ; forward_declare</property>
-            <property name="title">Upload NiVerDig sketch to Uno/Mega</property>
+            <property name="title">Upload NiVerDig sketch to Uno/Mega/Nano</property>
             <property name="tooltip"></property>
             <property name="two_step_creation">0</property>
             <property name="window_extra_style"></property>

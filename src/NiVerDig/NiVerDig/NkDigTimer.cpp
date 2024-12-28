@@ -362,7 +362,7 @@ void frameMain::m_toolPortOnAuiToolBarToolDropDown(wxAuiToolBarEvent& evt)
         m_portIds.push_back(port);
         ++index;
     }
-    menuPopup.Append(new wxMenuItem(&menuPopup, EUPLOADHEX, wxT("Upload NiVerDig sketch to Uno/Mega"), wxEmptyString, wxITEM_NORMAL));
+    menuPopup.Append(new wxMenuItem(&menuPopup, EUPLOADHEX, wxT("Upload NiVerDig sketch to Uno/Mega/Nano"), wxEmptyString, wxITEM_NORMAL));
 
     // line up our menu with the button
     wxRect rect = tb->GetToolRect(evt.GetId());
